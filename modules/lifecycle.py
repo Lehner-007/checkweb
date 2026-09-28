@@ -5,10 +5,27 @@ import os
 import signal
 import threading
 import time
-from .model import VERSION, config_dir
+from .model import VERSION, config_dir, settings
+
+from .i18n import Strings
+
+_log_strings = None
 
 
-def execute_logged(operation, mode):
+def set_log_language(language):
+    global _log_strings
+    _log_strings = Strings(language)
+
+
+def log_text(key, **values):
+    global _log_strings
+    if _log_strings is None:
+        set_log_language(settings()['language'])
+    return _log_strings(key, **values)
+
+
+def execute_logged(operation, mode, language=None):
+    set_log_language(language or settings()['language'])
     root = logging.getLogger()
     logger = logging.getLogger('checkweb.lifecycle')
     previous_level = root.level
@@ -31,7 +48,8 @@ def execute_logged(operation, mode):
     started = time.monotonic()
     pid = os.getpid()
     code = 1
-    reason = 'unerwarteter Fehler'
+    reason = 'log_unexpected'
+    detail = ''
     old_term = None
     received_signal = None
 
@@ -42,27 +60,31 @@ def execute_logged(operation, mode):
 
     if threading.current_thread() is threading.main_thread():
         old_term = signal.signal(signal.SIGTERM, terminate)
-    logger.info('Programm gestartet | Version=%s | PID=%s | Modus=%s', VERSION, pid, mode)
+    logger.info(log_text('log_started', version=VERSION, pid=pid, mode=log_text('log_local') if mode=='CLI lokal' else mode))
     try:
         code = operation()
         code = 0 if code is None else code
-        reason = {0: 'normal beendet', 1: 'Prüfung mit Fehlerbefunden',
-                  2: 'Fehler oder unvollständige Prüfung', 130: 'Benutzerabbruch (Strg+C)'}.get(code, 'Exit-Code zurückgegeben')
+        reason = {0: 'log_normal', 1: 'log_findings',
+                  2: 'log_failed', 130: 'log_interrupt'}.get(code, 'log_exit')
         return code
     except KeyboardInterrupt:
         code = 130
-        reason = 'Benutzerabbruch (Strg+C)'
+        reason = 'log_interrupt'
         return code
     except SystemExit as exc:
         code = exc.code if isinstance(exc.code, int) else (0 if exc.code is None else 1)
-        reason = 'Signal ' + received_signal if received_signal else 'SystemExit'
+        reason = 'log_signal' if received_signal else 'log_system_exit'
+        detail = received_signal or ''
         raise
     except Exception as exc:
-        reason = 'unbehandelte Ausnahme: ' + type(exc).__name__
+        reason = 'log_exception'
+        detail = type(exc).__name__
         raise
     finally:
-        logger.info('Programm beendet | Version=%s | PID=%s | Modus=%s | Grund=%s | Exit-Code=%s | Laufzeit=%.3fs',
-                    VERSION, pid, mode, reason, code, time.monotonic() - started)
+        logger.info(log_text('log_ended', version=VERSION, pid=pid,
+                             mode=log_text('log_local') if mode=='CLI lokal' else mode,
+                             reason=log_text(reason, detail=detail), code=code,
+                             duration=time.monotonic() - started))
         if old_term is not None:
             signal.signal(signal.SIGTERM, old_term)
         if handler is not None:

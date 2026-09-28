@@ -6,6 +6,7 @@ from datetime import datetime
 import json
 import base64
 import logging
+from .lifecycle import log_text
 import os
 import tempfile
 from .i18n import Strings
@@ -69,7 +70,7 @@ def watermark_style():
     try:
         encoded=base64.b64encode(image.read_bytes()).decode('ascii')
     except OSError:
-        logging.warning('Report watermark unavailable: %s',image)
+        logging.warning(log_text('log_watermark',image=image))
         return ''
     return ('<style>body{position:relative;isolation:isolate}'
             'body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;'

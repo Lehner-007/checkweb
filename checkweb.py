@@ -26,14 +26,15 @@ def main():
     if args.tools:print(json.dumps(tools_available(),ensure_ascii=False,indent=2));return 0
     from modules.lifecycle import execute_logged
     mode = 'CLI lokal' if args.local else 'CLI online' if args.url else 'GUI'
-    return execute_logged(lambda: run_application(args, parser), mode)
+    return execute_logged(lambda: run_application(args, parser), mode, args.language)
 
 
 def run_application(args, parser):
+    from modules.lifecycle import log_text
     for tool in tools_available():
         if not tool['available']:
-            logging.warning('Werkzeug fehlt / Missing tool: %s (APT: %s)%s',tool['name'],tool['package'],
-                '; optional, not used by the current HTML checker (html5lib)' if tool['name']=='tidy' else '')
+            logging.warning(log_text('log_tool_missing',name=tool['name'],package=tool['package'],
+                note=log_text('log_tidy_optional') if tool['name']=='tidy' else ''))
     if args.local or args.url:
         from modules.engine import Scanner
         from modules.reports import save_report

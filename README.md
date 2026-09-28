@@ -1,6 +1,6 @@
 # checkweb
 
-Aktuelle Version: **1.1.2**. Die zentrale Versionsquelle ist `VERSION`.
+Aktuelle Version: **1.2.0**. Die zentrale Versionsquelle ist `VERSION`.
 
 GTK-4-Anwendung zur lokalen und Online-Prüfung von Webseiten. Entwicklung für Linux Mint/Cinnamon. GPL-3.0-only, Copyright 2026 Josef. Vollständiger Lizenztext: LICENSE.
 
@@ -22,7 +22,7 @@ Standardgrenzen: 100 Seiten, Linktiefe 3, 300 Dateien/HTTP-Anfragen und 10 Sekun
 
 DE/EN und lokale HTML-Hilfe liegen unter lang/ und help/. Eigene JSON-Pakete importieren: `{"program_id":"checkweb","code":"fr","strings":{"start":"Démarrer"},"help_html":"<h1>Aide</h1><p>…</p>"}`. Fehlende Schlüssel fallen auf Englisch zurück; Platzhalter müssen übereinstimmen. Eigenes HTML wird auf passive Inhalte begrenzt. Vorhandene Sprachpakete werden nicht überschrieben.
 
-Optionale Downloadquelle: direkte HTTPS-GitHub-Basisadresse, aus der `<code>.json` geladen wird. Voreingestellt ist `https://raw.githubusercontent.com/Lehner-007/checkweb/main/github/sprachpakete`. Die optionale Versionsquelle liefert `{"program_id":"checkweb","version":"1.1.2"}`. Es werden keine Updates installiert. Monatsintervalle entsprechen 30 Tagen.
+Optionale Downloadquelle: direkte HTTPS-GitHub-Basisadresse, aus der `<code>.json` geladen wird. Voreingestellt ist `https://raw.githubusercontent.com/Lehner-007/checkweb/main/github/sprachpakete`. Die optionale Versionsquelle liefert `{"program_id":"checkweb","version":"1.2.0"}`. Es werden keine Updates installiert. Monatsintervalle entsprechen 30 Tagen.
 
 ## Prüfen
 
@@ -126,7 +126,7 @@ Anforderungen: `docs/manuelle_kontrolle.dm`; Regressionen: `tests/test_manual_re
 
 Das Programm-ZIP enthält DE/EN samt lokaler HTML-Hilfe. Nach dem Entpacken mit `python3 checkweb.py` starten; die oben genannten Systemabhängigkeiten müssen verfügbar sein. `start.sh` ist nur für die Entwicklung und liegt nicht im ZIP. Private Einstellungen, Logs und Testdateien werden nicht ausgeliefert.
 
-Arabisch, Spanisch, Französisch, Hindi, Portugiesisch, Russisch, Türkisch und vereinfachtes Chinesisch stehen als getrennte JSON-Sprachpakete mit vollständiger Hilfe bereit. Im Menü Optionen → Einstellungen importieren, Sprache auswählen, speichern und neu starten. Bestehende eigene Sprachpakete werden erhalten; ein erneuter Import desselben Sprachcodes wird abgelehnt. Die GitHub-Downloadquelle ist voreingestellt; eigene Adressen bleiben erhalten.
+Arabisch, Spanisch, Französisch, Hindi, Portugiesisch, Russisch, Türkisch und vereinfachtes Chinesisch stehen als getrennte JSON-Sprachpakete mit vollständiger Hilfe bereit. Im Menü Optionen → Einstellungen importieren, Sprache auswählen, speichern; die Oberfläche schaltet sofort um. Bestehende eigene Sprachpakete werden erhalten; ein erneuter Import desselben Sprachcodes wird abgelehnt. Die GitHub-Downloadquelle ist voreingestellt; eigene Adressen bleiben erhalten.
 
 Der Fenstertitel zeigt die Version. Werkzeuge und Einstellungen stehen im Optionen-Menü, die Bedienungsanleitung im Hilfe-Menü. Der Über-Dialog verwendet `assets/checkweb.png`. Siehe `CHANGELOG.md`.
 
@@ -158,7 +158,7 @@ Bei einem Verbindungs- oder Pushfehler können ein lokaler Commit und Tag bereit
 
 `./erstelledeb.sh` erstellt das DEB aus der zentralen `VERSION`, ohne die Programmversion zu ändern. Das Paket installiert einen Menüeintrag und auf vorhandenen, aktivierten Benutzer-Desktops eine Checkweb-Verknüpfung. `python3-html5lib` ist eine Pflichtabhängigkeit; die Installation mit APT löst diese auf. Ein bloßer Aufruf von `dpkg -i` lädt fehlende Abhängigkeiten nicht herunter.
 
-Installation: `sudo apt install ./checkweb_1.1.2_all.deb`. Entfernung: `sudo apt remove checkweb`. Bereits beim Entfernen werden Checkwebs persönliche Einstellungen, Profile, Sprachdateien, Hilfen, Logs, Caches und Zustandsdaten in seinen Benutzerordnern gelöscht. Erkannte Checkweb-Verknüpfungen werden ebenfalls entfernt, einschließlich solcher im Benutzer-Papierkorb. Der Entwicklungsordner und unabhängig gespeicherte Berichte bleiben erhalten. Bei einem Upgrade bleiben Benutzerdateien erhalten.
+Installation: `sudo apt install ./checkweb_1.2.0_all.deb`. Entfernung: `sudo apt remove checkweb`. Bereits beim Entfernen werden Checkwebs persönliche Einstellungen, Profile, Sprachdateien, Hilfen, Logs, Caches und Zustandsdaten in seinen Benutzerordnern gelöscht. Erkannte Checkweb-Verknüpfungen werden ebenfalls entfernt, einschließlich solcher im Benutzer-Papierkorb. Der Entwicklungsordner und unabhängig gespeicherte Berichte bleiben erhalten. Bei einem Upgrade bleiben Benutzerdateien erhalten.
 
 Die Bereinigung läuft mit den Rechten des jeweiligen Benutzers. Nicht erreichbare Benutzerordner und abweichende, bei der Paketverwaltung nicht bekannte XDG-Pfade müssen gegebenenfalls gesondert geprüft werden. Die Desktop-Vertrauensmarkierung wird gesetzt, soweit die Sitzung sie unterstützt; andernfalls kann Cinnamon beim ersten Start eine Bestätigung verlangen.
 
@@ -176,4 +176,6 @@ Leere Quellen aus alten Einstellungen werden beim Laden mit diesen Vorgaben erg�
 
 ## Sprachauswahl
 
-Installierte Sprachen erscheinen mit ausgeschriebenen Namen in der gewählten Oberflächensprache. „Sprache und Hilfe nachladen“ lädt auf Benutzeraktion den Katalog `catalog.json` aus der konfigurierten Sprachquelle und bietet noch nicht installierte Sprachen zur Auswahl an. Nach Import oder Download erscheint die neue Sprache sofort in den geöffneten Einstellungen; Auswahl speichern und Anwendung neu starten. Eigene Katalogeinträge und Sprachpakete können einen vollständigen `name` mitführen.
+Installierte Sprachen erscheinen mit ausgeschriebenen Namen in der gewählten Oberflächensprache. „Sprache und Hilfe nachladen“ lädt auf Benutzeraktion den Katalog `catalog.json` aus der konfigurierten Sprachquelle und bietet noch nicht installierte Sprachen zur Auswahl an. Nach Import oder Download erscheint die neue Sprache sofort in den geöffneten Einstellungen; Auswahl speichern; die Anwendung schaltet ohne Neustart um. Eigene Katalogeinträge und Sprachpakete können einen vollständigen `name` mitführen.
+
+Neue programmgesteuerte Logmeldungen verwenden die eingestellte Sprache, auch nach einem gespeicherten Sprachwechsel. Vorhandene Einträge bleiben unverändert. Technische Fremdmeldungen und Tracebacks bleiben im Original.

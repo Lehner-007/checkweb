@@ -1,3 +1,10 @@
+# 1.2.0
+
+- Neue Programmeinträge im Log verwenden die gewählte Sprache und folgen einem gespeicherten Sprachwechsel sofort; vorhandene Einträge bleiben erhalten.
+- Sprache der Oberfläche direkt beim Speichern wechseln, ohne Neustart.
+- Menüs, Prüfkategorien, Ergebnisse und Leserichtung aktualisieren; Eingabe, Filter und Befunde erhalten.
+- Hilfe und Sprachpakete auf sofortige Umschaltung abgestimmt.
+
 # 1.1.2
 
 - Einheitliche ausgeschriebene Namen installierter Sprachen.

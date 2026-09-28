@@ -5,7 +5,7 @@ import signal
 import tempfile
 import unittest
 from unittest.mock import patch
-from modules.lifecycle import execute_logged
+from modules.lifecycle import execute_logged, set_log_language, log_text
 
 
 class LifecycleTests(unittest.TestCase):
@@ -13,6 +13,9 @@ class LifecycleTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.path = Path(self.tmp.name)
+        language = patch('modules.lifecycle.settings', return_value={'language':'de'})
+        language.start();self.addCleanup(language.stop)
+        self.addCleanup(set_log_language, 'de')
         self.config = patch('modules.lifecycle.config_dir', return_value=self.path)
         self.config.start();self.addCleanup(self.config.stop)
 
@@ -52,6 +55,31 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, 143)
         self.assertIn('Signal SIGTERM', self.log())
         self.assertEqual(signal.getsignal(signal.SIGTERM), original)
+
+    def test_saved_english_and_explicit_override(self):
+        with patch('modules.lifecycle.settings', return_value={'language':'en'}):
+            execute_logged(lambda: 0, 'CLI lokal')
+        text = self.log()
+        self.assertIn('Application started', text)
+        self.assertIn('Mode=CLI local', text)
+        self.assertIn('Reason=normal shutdown', text)
+        self.assertNotIn('Programm', text)
+        execute_logged(lambda: 0, 'GUI', 'en')
+        self.assertEqual(self.log().count('Application started'), 2)
+
+    def test_switch_changes_new_messages_only(self):
+        def operation():
+            logging.warning(log_text('log_scan_worker'))
+            set_log_language('en')
+            logging.warning(log_text('log_scan_worker'))
+            return 0
+        execute_logged(operation, 'GUI', 'de')
+        text = self.log()
+        self.assertIn('Programm gestartet', text)
+        self.assertIn('Prüfung fehlgeschlagen', text)
+        self.assertIn('Scan worker failed', text)
+        self.assertIn('Application stopped', text)
+        self.assertNotIn('Programm beendet', text)
 
     def test_unwritable_log_does_not_block(self):
         with patch('modules.lifecycle.config_dir', side_effect=PermissionError):

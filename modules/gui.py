@@ -1,6 +1,7 @@
 """GTK 4 interface; scanning and downloads run off the main thread."""
 import json
 import logging
+from .lifecycle import log_text, set_log_language
 import threading
 from collections import Counter
 from datetime import datetime,timezone,timedelta
@@ -20,7 +21,8 @@ class Window(Gtk.ApplicationWindow):
         self.set_default_size(1120,790)
         self.opts=settings()
         self.tr=Strings(self.opts['language'])
-        if self.tr.code.split('-')[0] in ('ar','he','fa','ur'):Gtk.Widget.set_default_direction(Gtk.TextDirection.RTL)
+        self.translation_bindings=[]
+        Gtk.Widget.set_default_direction(Gtk.TextDirection.RTL if self.tr.code.split('-')[0] in ('ar','he','fa','ur') else Gtk.TextDirection.LTR)
         self.report=None
         self.worker=None
         self.cancel_event=threading.Event()
@@ -32,14 +34,15 @@ class Window(Gtk.ApplicationWindow):
         for method in ('set_margin_top','set_margin_bottom','set_margin_start','set_margin_end'):getattr(outer,method)(14)
         self.set_child(outer)
         self.menu_actions={}
-        outer.append(self.build_menu())
+        self.menu_bar=self.build_menu()
+        outer.append(self.menu_bar)
         top=Gtk.Box(spacing=10)
-        subtitle=Gtk.Label(label=self.tr('app_subtitle'),xalign=0,hexpand=True)
+        subtitle=self.translated_label('app_subtitle',xalign=0,hexpand=True)
         top.append(subtitle)
         outer.append(top)
         targetrow=Gtk.Box(spacing=8)
         self.mode=Gtk.DropDown.new_from_strings([self.tr('local'),self.tr('online')])
-        self.mode.connect('notify::selected',self.mode_changed)
+        self.mode_handler=self.mode.connect('notify::selected',self.mode_changed)
         self.target=Gtk.Entry(hexpand=True,placeholder_text='/home/… / https://…')
         self.target.set_direction(Gtk.TextDirection.LTR)
         self.clear_target_button=self.button('clear_target',self.clear_target)
@@ -52,7 +55,7 @@ class Window(Gtk.ApplicationWindow):
         outer.append(self.pane)
         left=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=8)
         header=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=5)
-        header.append(Gtk.Label(label=self.tr('checks'),hexpand=True,xalign=0))
+        header.append(self.translated_label('checks',hexpand=True,xalign=0))
         header.append(self.button('select_all_checks',lambda *_:self.select_all(True)))
         header.append(self.button('clear_checks',lambda *_:self.select_all(False)))
         left.append(header)
@@ -70,14 +73,14 @@ class Window(Gtk.ApplicationWindow):
             if not available:box.set_tooltip_text(self.tr('unavailable')+': '+capabilities[category]['package'])
             self.checkboxes[category]=box
             left.append(box)
-        notes=Gtk.Label(label=self.tr('limits_note'),wrap=True,xalign=0,max_width_chars=32)
+        notes=self.translated_label('limits_note',wrap=True,xalign=0,max_width_chars=32)
         notes.add_css_class('dim-label');left.append(notes)
         lscroll=Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER,min_content_width=265)
         lscroll.set_child(left);self.pane.set_start_child(lscroll);self.pane.set_position(285)
         right=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=8)
         filters=Gtk.Box(spacing=8)
         self.severity=Gtk.DropDown.new_from_strings([self.tr(x) for x in ('all','error','warning','info')])
-        self.severity.connect('notify::selected',self.filter_changed)
+        self.severity_handler=self.severity.connect('notify::selected',self.filter_changed)
         self.search=Gtk.SearchEntry(hexpand=True,placeholder_text=self.tr('filter'))
         self.search.connect('search-changed',self.filter_changed)
         filters.append(self.severity);filters.append(self.search);right.append(filters)
@@ -137,16 +140,69 @@ class Window(Gtk.ApplicationWindow):
         for label,entries in groups:
             submenu=Gio.Menu()
             for key,callback in entries:
-                action=Gio.SimpleAction.new(key,None)
-                action.connect('activate',lambda a,p,fn=callback:fn())
-                self.add_action(action);self.menu_actions[key]=action
+                if key not in self.menu_actions:
+                    action=Gio.SimpleAction.new(key,None)
+                    action.connect('activate',lambda a,p,fn=callback:fn())
+                    self.add_action(action);self.menu_actions[key]=action
+                    if key in ('export','cancel'):action.set_enabled(False)
                 submenu.append(self.tr({'all':'select_all_checks','none':'clear_checks','help':'open_help'}.get(key,key)),'win.'+key)
             menu.append_submenu(self.tr(label),submenu)
-        for key in ('export','cancel'):self.menu_actions[key].set_enabled(False)
         return Gtk.PopoverMenuBar.new_from_model(menu)
 
+    def bind_translation(self,widget,property_name,key):
+        self.translation_bindings.append((widget,property_name,key))
+        return widget
+
+    def translated_label(self,key,**kwargs):
+        return self.bind_translation(Gtk.Label(label=self.tr(key),**kwargs),'label',key)
+
     def button(self,key,callback):
-        b=Gtk.Button(label=self.tr(key));b.connect('clicked',callback);return b
+        b=self.bind_translation(Gtk.Button(label=self.tr(key)),'label',key)
+        b.connect('clicked',callback)
+        return b
+
+    def apply_language(self,code):
+        if code==self.tr.code:return
+        selected_row=self.listbox.get_selected_row()
+        selected_finding=getattr(selected_row,'finding',None)
+        self.tr=Strings(code)
+        set_log_language(code)
+        direction=Gtk.TextDirection.RTL if code.split('-')[0] in ('ar','he','fa','ur') else Gtk.TextDirection.LTR
+        Gtk.Widget.set_default_direction(direction)
+        self.set_direction(direction)
+        live=[]
+        for widget,property_name,key in self.translation_bindings:
+            if widget.get_root() is not None:
+                widget.set_property(property_name,self.tr(key))
+                live.append((widget,property_name,key))
+        self.translation_bindings=live
+        menu=self.build_menu()
+        self.menu_bar.set_menu_model(menu.get_menu_model())
+        for dropdown,handler,keys in [(self.mode,self.mode_handler,('local','online')),
+                                     (self.severity,self.severity_handler,('all','error','warning','info'))]:
+            selected=dropdown.get_selected()
+            dropdown.handler_block(handler)
+            try:
+                dropdown.set_model(Gtk.StringList.new([self.tr(key) for key in keys]))
+                dropdown.set_selected(selected)
+            finally:dropdown.handler_unblock(handler)
+        self.search.set_property('placeholder-text',self.tr('filter'))
+        capabilities={x['category']:x for x in tools_available()}
+        missing=[x['package'] for x in capabilities.values() if not x['available']]
+        self.tool_notice.set_label(self.tr('missing_tools',packages=', '.join(missing)) if missing else '')
+        for category,box in self.checkboxes.items():
+            box.set_label(self.tr('cat_'+category))
+            if not capabilities.get(category,{}).get('available',True):
+                box.set_tooltip_text(self.tr('unavailable')+': '+capabilities[category]['package'])
+        running=bool(self.worker and self.worker.is_alive())
+        self.status.set_label(self.tr('running' if running else self.report.status if self.report else 'ready'))
+        self.render()
+        if selected_finding is not None:
+            row=self.listbox.get_first_child()
+            while row:
+                if getattr(row,'finding',None) is selected_finding:
+                    self.listbox.select_row(row);break
+                row=row.get_next_sibling()
 
     def clear_target(self,*_):
         self.target.set_text('')
@@ -174,7 +230,7 @@ class Window(Gtk.ApplicationWindow):
         folder=Path(start).expanduser() if start else Path.home()
         if not folder.is_dir():folder=Path.home()
         try:dialog.set_current_folder(Gio.File.new_for_path(str(folder)))
-        except GLib.Error:logging.exception('Cannot set file chooser directory')
+        except GLib.Error:logging.exception(log_text('log_chooser_directory'))
         def response(d,r):
             try:
                 if r==Gtk.ResponseType.ACCEPT:
@@ -183,7 +239,7 @@ class Window(Gtk.ApplicationWindow):
                     if not path:raise ValueError(self.tr('local_path_required'))
                     callback(Path(path),d)
             except (OSError,ValueError,GLib.Error) as exc:
-                logging.exception('File dialog operation failed')
+                logging.exception(log_text('log_file_dialog'))
                 self.notify(self.background_error(exc),self.tr('error_title'))
             finally:
                 d.destroy()
@@ -250,7 +306,7 @@ class Window(Gtk.ApplicationWindow):
                 report=scanner.run()
             GLib.idle_add(self.scan_done,report)
         except Exception as exc:
-            logging.exception('Scan worker failed')
+            logging.exception(log_text('log_scan_worker'))
             GLib.idle_add(self.worker_error,str(exc))
 
     def worker_error(self,text):
@@ -340,7 +396,7 @@ class Window(Gtk.ApplicationWindow):
                     self.report_directory=path.parent
                     self.notify(self.tr('saved',path=path))
                 except (OSError,ValueError) as exc:
-                    logging.exception('Report export failed')
+                    logging.exception(log_text('log_export'))
                     self.notify(self.background_error(exc),self.tr('error_title'))
             if path.exists():self.question(self.tr('confirm_overwrite'),save)
             else:save()
@@ -363,11 +419,11 @@ class Window(Gtk.ApplicationWindow):
     def show_log(self,*_):
         from .logfile import read_log,save_log,LogChangedError
         path=config_dir()/'logs'/'checkweb.log'
-        window=Gtk.Window(title=self.tr('log'),transient_for=self,default_width=780,default_height=500)
+        window=self.bind_translation(Gtk.Window(title=self.tr('log'),transient_for=self,default_width=780,default_height=500),'title','log')
         box=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=10,margin_top=12,margin_bottom=12,margin_start=12,margin_end=12)
         window.set_child(box)
         box.append(Gtk.Label(label=str(path),xalign=0,wrap=True,selectable=True))
-        box.append(Gtk.Label(label=self.tr('log_help'),xalign=0,wrap=True))
+        box.append(self.translated_label('log_help',xalign=0,wrap=True))
         view=Gtk.TextView(monospace=True,wrap_mode=Gtk.WrapMode.WORD_CHAR,vexpand=True)
         view.set_name('log_editor')
         scroll=Gtk.ScrolledWindow(vexpand=True);scroll.set_child(view);box.append(scroll)
@@ -476,7 +532,7 @@ class Window(Gtk.ApplicationWindow):
                         shutil.copy2(old,old.with_name('settings.invalid.'+str(time.time_ns())+'.json'))
                 atomic_json(old,new)
                 self.opts=new;window.destroy()
-                if new['language']!=self.tr.code:self.notify(self.tr('restart_language'))
+                self.apply_language(new['language'])
             except OSError as e:self.notify(str(e),self.tr('error_title'))
         layout.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
         footer=Gtk.Box(spacing=10,halign=Gtk.Align.END,margin_top=12,margin_bottom=12,margin_start=16,margin_end=16)

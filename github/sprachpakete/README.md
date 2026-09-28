@@ -1,4 +1,4 @@
-# checkweb 1.1.2 – zusätzliche Sprachen und Hilfe
+# checkweb 1.2.0 – zusätzliche Sprachen und Hilfe
 
 Diese acht Pakete ergänzen das Basispaket (Deutsch/Englisch):
 
@@ -40,7 +40,7 @@ Import funktioniert ohne GitHub. Dieses Archiv wurde noch nicht hochgeladen.
 
 ## Prüfung und Lizenz
 
-Stand: 28.09.2026, passend zu checkweb 1.1.2. Vollständige Schlüssel und Platzhalter,
+Stand: 28.09.2026, passend zu checkweb 1.2.0. Vollständige Schlüssel und Platzhalter,
 Import, Schutz bestehender Pakete, Hilfezuordnung, Berichtsausgabe und GUI wurden
 technisch geprüft. Arabische Hilfe und HTML-Berichte verwenden `dir="rtl"`.
 Technische Ausgaben externer Prüfwerkzeuge bleiben in deren Originalsprache.
