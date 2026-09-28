@@ -1,6 +1,6 @@
 # checkweb
 
-Aktuelle Version: **1.1.1**. Die zentrale Versionsquelle ist `VERSION`.
+Aktuelle Version: **1.1.2**. Die zentrale Versionsquelle ist `VERSION`.
 
 GTK-4-Anwendung zur lokalen und Online-Prüfung von Webseiten. Entwicklung für Linux Mint/Cinnamon. GPL-3.0-only, Copyright 2026 Josef. Vollständiger Lizenztext: LICENSE.
 
@@ -22,7 +22,7 @@ Standardgrenzen: 100 Seiten, Linktiefe 3, 300 Dateien/HTTP-Anfragen und 10 Sekun
 
 DE/EN und lokale HTML-Hilfe liegen unter lang/ und help/. Eigene JSON-Pakete importieren: `{"program_id":"checkweb","code":"fr","strings":{"start":"Démarrer"},"help_html":"<h1>Aide</h1><p>…</p>"}`. Fehlende Schlüssel fallen auf Englisch zurück; Platzhalter müssen übereinstimmen. Eigenes HTML wird auf passive Inhalte begrenzt. Vorhandene Sprachpakete werden nicht überschrieben.
 
-Optionale Downloadquelle: direkte HTTPS-GitHub-Basisadresse, aus der `<code>.json` geladen wird. Voreingestellt ist `https://raw.githubusercontent.com/Lehner-007/checkweb/main/github/sprachpakete`. Die optionale Versionsquelle liefert `{"program_id":"checkweb","version":"1.1.1"}`. Es werden keine Updates installiert. Monatsintervalle entsprechen 30 Tagen.
+Optionale Downloadquelle: direkte HTTPS-GitHub-Basisadresse, aus der `<code>.json` geladen wird. Voreingestellt ist `https://raw.githubusercontent.com/Lehner-007/checkweb/main/github/sprachpakete`. Die optionale Versionsquelle liefert `{"program_id":"checkweb","version":"1.1.2"}`. Es werden keine Updates installiert. Monatsintervalle entsprechen 30 Tagen.
 
 ## Prüfen
 
@@ -158,7 +158,7 @@ Bei einem Verbindungs- oder Pushfehler können ein lokaler Commit und Tag bereit
 
 `./erstelledeb.sh` erstellt das DEB aus der zentralen `VERSION`, ohne die Programmversion zu ändern. Das Paket installiert einen Menüeintrag und auf vorhandenen, aktivierten Benutzer-Desktops eine Checkweb-Verknüpfung. `python3-html5lib` ist eine Pflichtabhängigkeit; die Installation mit APT löst diese auf. Ein bloßer Aufruf von `dpkg -i` lädt fehlende Abhängigkeiten nicht herunter.
 
-Installation: `sudo apt install ./checkweb_1.1.1_all.deb`. Entfernung: `sudo apt remove checkweb`. Bereits beim Entfernen werden Checkwebs persönliche Einstellungen, Profile, Sprachdateien, Hilfen, Logs, Caches und Zustandsdaten in seinen Benutzerordnern gelöscht. Erkannte Checkweb-Verknüpfungen werden ebenfalls entfernt, einschließlich solcher im Benutzer-Papierkorb. Der Entwicklungsordner und unabhängig gespeicherte Berichte bleiben erhalten. Bei einem Upgrade bleiben Benutzerdateien erhalten.
+Installation: `sudo apt install ./checkweb_1.1.2_all.deb`. Entfernung: `sudo apt remove checkweb`. Bereits beim Entfernen werden Checkwebs persönliche Einstellungen, Profile, Sprachdateien, Hilfen, Logs, Caches und Zustandsdaten in seinen Benutzerordnern gelöscht. Erkannte Checkweb-Verknüpfungen werden ebenfalls entfernt, einschließlich solcher im Benutzer-Papierkorb. Der Entwicklungsordner und unabhängig gespeicherte Berichte bleiben erhalten. Bei einem Upgrade bleiben Benutzerdateien erhalten.
 
 Die Bereinigung läuft mit den Rechten des jeweiligen Benutzers. Nicht erreichbare Benutzerordner und abweichende, bei der Paketverwaltung nicht bekannte XDG-Pfade müssen gegebenenfalls gesondert geprüft werden. Die Desktop-Vertrauensmarkierung wird gesetzt, soweit die Sitzung sie unterstützt; andernfalls kann Cinnamon beim ersten Start eine Bestätigung verlangen.
 
@@ -173,3 +173,7 @@ Normale GUI- und Prüfläufe protokollieren Start und Ende mit Datum, Uhrzeit, Z
 - Sprachpakete: https://raw.githubusercontent.com/Lehner-007/checkweb/main/github/sprachpakete
 
 Leere Quellen aus alten Einstellungen werden beim Laden mit diesen Vorgaben ergänzt. Eigene Quellen bleiben erhalten. Die automatische Versionsprüfung bleibt standardmäßig ausgeschaltet; keine automatische Installation.
+
+## Sprachauswahl
+
+Installierte Sprachen erscheinen mit ausgeschriebenen Namen in der gewählten Oberflächensprache. „Sprache und Hilfe nachladen“ lädt auf Benutzeraktion den Katalog `catalog.json` aus der konfigurierten Sprachquelle und bietet noch nicht installierte Sprachen zur Auswahl an. Nach Import oder Download erscheint die neue Sprache sofort in den geöffneten Einstellungen; Auswahl speichern und Anwendung neu starten. Eigene Katalogeinträge und Sprachpakete können einen vollständigen `name` mitführen.

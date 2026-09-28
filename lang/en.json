@@ -271,5 +271,19 @@
   "type_font": "Fonts",
   "type_fetch": "XHR / Fetch",
   "type_other": "Other resources",
-  "wrong_program": "This file is not for checkweb or has no program identifier. Expected program_id: checkweb. Nothing was applied."
+  "wrong_program": "This file is not for checkweb or has no program identifier. Expected program_id: checkweb. Nothing was applied.",
+  "language_name_de": "German",
+  "language_name_en": "English",
+  "language_name_ar": "Arabic",
+  "language_name_es": "Spanish",
+  "language_name_fr": "French",
+  "language_name_hi": "Hindi",
+  "language_name_pt": "Portuguese",
+  "language_name_ru": "Russian",
+  "language_name_tr": "Turkish",
+  "language_name_zh": "Chinese",
+  "languages_loading": "Loading available languages …",
+  "languages_available": "Choose a language to download:",
+  "languages_none": "All available languages are already installed.",
+  "languages_load_failed": "Could not load the language list: {reason}"
 }

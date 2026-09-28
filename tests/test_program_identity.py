@@ -65,7 +65,7 @@ class ProgramIdentityTests(unittest.TestCase):
     def test_prepared_resources_match_program(self):
         self.assertEqual(validate_version(json.loads((ROOT/'github/version.json').read_text())),VERSION)
         en=Strings('en').en
-        packs=list((ROOT/'github/sprachpakete').glob('*.json'))
+        packs=[p for p in (ROOT/'github/sprachpakete').glob('*.json') if p.name!='catalog.json']
         self.assertEqual(len(packs),8)
         for path in packs:
             data=json.loads(path.read_text());code,strings,help_html=validate_pack(data)

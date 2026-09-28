@@ -12,7 +12,7 @@ from .model import CATEGORIES,VERSION,settings,config_dir,atomic_json,tools_avai
 from .i18n import Strings
 from .engine import Scanner, normalize_url_input, canonical
 from .reports import SECTIONS, save_report, group_findings, finding_section, limit_messages, incomplete_messages, format_duration
-from .languages import import_pack,download_pack,download_version,ProgramIdentityError
+from .languages import import_pack,download_pack,download_version,download_catalog,ProgramIdentityError
 
 class Window(Gtk.ApplicationWindow):
     def __init__(self,app):
@@ -419,9 +419,15 @@ class Window(Gtk.ApplicationWindow):
             box.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
             label(key)
         codes=Strings.languages()
-        lang=Gtk.DropDown.new_from_strings([{'de':'Deutsch','en':'English'}.get(code,code) for code in codes])
+        lang=Gtk.DropDown.new_from_strings([self.tr.language_name(code) for code in codes])
         lang.set_selected(codes.index(self.tr.code) if self.tr.code in codes else codes.index('en'))
+        lang.set_name('installed_languages')
         label('language');box.append(lang)
+        def refresh_languages(code):
+            codes[:] = Strings.languages()
+            lang.set_model(Gtk.StringList.new([self.tr.language_name(item) for item in codes]))
+            lang.set_selected(codes.index(code) if code in codes else codes.index('en'))
+
         group('scan_settings')
         label('zero_limits')
         for key,low,high in [('max_pages',0,10000),('max_depth',0,20),('max_resources',0,50000),('timeout',0,60)]:
@@ -451,8 +457,8 @@ class Window(Gtk.ApplicationWindow):
         group('language_extensions')
         label('source_url')
         controls['source_url']=Gtk.Entry(text=self.opts['source_url']);box.append(controls['source_url'])
-        box.append(self.button('import_language',self.import_language))
-        box.append(self.button('download_language',lambda *_:self.download_language(controls['source_url'].get_text())))
+        box.append(self.button('import_language',lambda *_:self.import_language(on_installed=refresh_languages)))
+        box.append(self.button('download_language',lambda *_:self.download_language(controls['source_url'].get_text(),on_installed=refresh_languages,parent=window)))
         def save(*_):
             new=self.opts.copy()
             for key,control in controls.items():
@@ -507,22 +513,54 @@ class Window(Gtk.ApplicationWindow):
                 if not quiet:GLib.idle_add(lambda:(self.notify(text,self.tr('error_title')),False)[1])
         threading.Thread(target=run,daemon=True).start()
 
-    def import_language(self,*_):
+    def import_language(self,*_,on_installed=None):
         def selected(path,dialog):
-            self.background(lambda:import_pack(path),lambda code:self.notify(self.tr('language_installed',code=code)))
+            self.background(lambda:import_pack(path),lambda code:self.language_installed(code,on_installed))
         dialog=self.file_dialog('import_language',Gtk.FileChooserAction.OPEN,selected)
         fil=Gtk.FileFilter();fil.set_name('JSON');fil.add_pattern('*.json');dialog.add_filter(fil)
         dialog.show()
 
-    def download_language(self,source):
+    def language_installed(self, code, callback=None):
+        if callback: callback(code)
+        self.notify(self.tr('language_installed',code=self.tr.language_name(code)))
+
+    def download_language(self,source,on_installed=None,parent=None):
         if not source.strip():self.notify(self.tr('no_source'));return
-        dialog=Gtk.Dialog(title=self.tr('download_language'),transient_for=self,modal=True)
-        entry=Gtk.Entry(placeholder_text=self.tr('language_code'));dialog.get_content_area().append(entry)
-        dialog.add_button(self.tr('cancel'),Gtk.ResponseType.CANCEL);dialog.add_button(self.tr('download_language'),Gtk.ResponseType.OK)
+        dialog=Gtk.Dialog(title=self.tr('download_language'),transient_for=parent or self,modal=True)
+        area=dialog.get_content_area()
+        area.set_spacing(10)
+        for side in ('top','bottom','start','end'):getattr(area,'set_margin_'+side)(16)
+        status=Gtk.Label(label=self.tr('languages_loading'),wrap=True,xalign=0);area.append(status)
+        choice=Gtk.DropDown.new_from_strings([]);choice.set_name('download_languages')
+        choice.set_sensitive(False);area.append(choice)
+        entries=[]
+        dialog.add_button(self.tr('cancel'),Gtk.ResponseType.CANCEL)
+        dialog.add_button(self.tr('download_language'),Gtk.ResponseType.OK)
+        dialog.set_response_sensitive(Gtk.ResponseType.OK,False)
+        def load():
+            try:return download_catalog(source),None
+            except Exception as exc:return None,self.background_error(exc)
+        def loaded(result):
+            if not dialog.get_visible():return
+            items,error=result
+            if error:
+                status.set_text(self.tr('languages_load_failed',reason=error));return
+            installed=set(Strings.languages())
+            entries[:] = [item for item in items if item['code'] not in installed]
+            entries.sort(key=lambda item:self.tr.language_name(item['code'],item['name']).casefold())
+            choice.set_model(Gtk.StringList.new([self.tr.language_name(item['code'],item['name']) for item in entries]))
+            choice.set_selected(0 if entries else Gtk.INVALID_LIST_POSITION)
+            choice.set_sensitive(bool(entries));dialog.set_response_sensitive(Gtk.ResponseType.OK,bool(entries))
+            status.set_text(self.tr('languages_available' if entries else 'languages_none'))
         def response(d,r):
-            code=entry.get_text().strip();d.destroy()
-            if r==Gtk.ResponseType.OK:self.background(lambda:download_pack(source,code),lambda result:self.notify(self.tr('language_installed',code=result)))
+            selected=choice.get_selected()
+            d.destroy()
+            if r==Gtk.ResponseType.OK and selected<len(entries):
+                code=entries[selected]['code']
+                self.background(lambda:download_pack(source,code),lambda result:self.language_installed(result,on_installed))
         dialog.connect('response',response);dialog.present()
+        self.background(load,loaded)
+        return dialog
 
     def check_update(self,url,automatic=False):
         if not url:

@@ -28,6 +28,19 @@ class Strings:
         try: return text.format(**kwargs)
         except (ValueError,KeyError,IndexError): return self.en.get(key,key)
 
+    def language_name(self, code, fallback=None):
+        key = 'language_name_' + code
+        if key in self.values:
+            return self.values[key]
+        if re.fullmatch(r'[a-z]{2,3}(?:[-_][A-Za-z0-9]{2,8})?', code):
+            try:
+                data = json.loads((config_dir()/'languages'/code/'metadata.json').read_text('utf-8'))
+                name = data.get('name')
+                if isinstance(name, str) and name.strip(): return name
+            except (OSError, ValueError, AttributeError):
+                pass
+        return fallback or code
+
     def help_path(self):
         paths = [config_dir()/'languages'/self.code/'help.html',ROOT/'help'/self.code/'index.html',ROOT/'help/en/index.html']
         return next(p for p in paths if p.is_file())

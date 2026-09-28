@@ -69,6 +69,9 @@ def install_pack(data):
     temp=Path(tempfile.mkdtemp(prefix='.import-',dir=folder.parent))
     try:
         atomic_json(temp/'strings.json',strings)
+        name = data.get('name')
+        if isinstance(name, str) and 0 < len(name.strip()) <= 100:
+            atomic_json(temp/'metadata.json', {'name': name.strip()})
         (temp/'help.html').write_text(help_,'utf-8')
         os.rename(temp,folder)
     finally:
@@ -104,3 +107,25 @@ def download_pack(base,code):
     validate_program(data)
     if data.get('code')!=code:raise ValueError('Unexpected language code')
     return install_pack(data)
+
+
+def download_catalog(base):
+    if not base.strip(): raise ValueError('No GitHub source configured')
+    data = github_json(base.rstrip('/') + '/catalog.json')
+    validate_program(data)
+    entries = data.get('languages')
+    if not isinstance(entries, list) or len(entries) > 200:
+        raise ValueError('Invalid language catalog')
+    result = []
+    seen = set()
+    for entry in entries:
+        if not isinstance(entry, dict): raise ValueError('Invalid language entry')
+        code, name = entry.get('code'), entry.get('name')
+        if not isinstance(code, str) or not re.fullmatch(r'[a-z]{2,3}(?:[-_][A-Za-z0-9]{2,8})?', code):
+            raise ValueError('Invalid language code')
+        if code in seen: raise ValueError('Duplicate language code')
+        if not isinstance(name, str) or not name.strip() or len(name) > 100:
+            raise ValueError('Missing language name')
+        seen.add(code)
+        if code not in ('de', 'en'): result.append({'code': code, 'name': name.strip()})
+    return result

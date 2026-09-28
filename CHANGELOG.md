@@ -1,3 +1,9 @@
+# 1.1.2
+
+- Einheitliche ausgeschriebene Namen installierter Sprachen.
+- Herunterladbare Sprachen aus dem GitHub-Katalog auswählen, statt Codes einzugeben.
+- Geöffnete Sprachauswahl nach Import oder Download sofort aktualisieren.
+
 # 1.1.1
 
 - Öffentliche GitHub-Links für Versionsprüfung und Sprachpakete ergänzt.

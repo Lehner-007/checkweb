@@ -271,5 +271,19 @@
   "type_font": "Schriften",
   "type_fetch": "XHR / Fetch",
   "type_other": "Weitere Ressourcen",
-  "wrong_program": "Diese Datei gehört nicht zu checkweb oder enthält keine Programmkennung. Erwartet wird program_id: checkweb. Es wurde nichts übernommen."
+  "wrong_program": "Diese Datei gehört nicht zu checkweb oder enthält keine Programmkennung. Erwartet wird program_id: checkweb. Es wurde nichts übernommen.",
+  "language_name_de": "Deutsch",
+  "language_name_en": "Englisch",
+  "language_name_ar": "Arabisch",
+  "language_name_es": "Spanisch",
+  "language_name_fr": "Französisch",
+  "language_name_hi": "Hindi",
+  "language_name_pt": "Portugiesisch",
+  "language_name_ru": "Russisch",
+  "language_name_tr": "Türkisch",
+  "language_name_zh": "Chinesisch",
+  "languages_loading": "Verfügbare Sprachen werden geladen …",
+  "languages_available": "Sprache zum Herunterladen auswählen:",
+  "languages_none": "Alle verfügbaren Sprachen sind bereits installiert.",
+  "languages_load_failed": "Sprachliste konnte nicht geladen werden: {reason}"
 }
