@@ -1,0 +1,42 @@
+# Lokale Entwicklung und Benutzerkonfiguration
+.venv/
+venv/
+.config/
+profiles/
+__pycache__/
+*.py[cod]
+# Erzeugte Pakete, Prüfberichte und Zwischenstände
+dist/
+work/
+tmp/
+temp/
+logs/
+log/
+*.log
+.cache/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+# Geheimnisse bleiben auch im Git-Index ausgeschlossen
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+secrets*.json
+# Editor- und Sicherungsdateien
+.idea/
+.vscode/
+*~
+*.swp
+*.swo
+*.bak
+*.orig
+*.rej
+backups/
+backup/
+
+# Lokale Fehlerliste, kein öffentlicher Quellbestand
+/fehler.txt
