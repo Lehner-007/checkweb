@@ -20,7 +20,7 @@ Sprachimport, Versionsprüfung und Protokolleditor.
 
 ## Import
 
-1. checkweb öffnen → Optionen → Einstellungen.
+1. checkweb öffnen → Datei → Einstellungen.
 2. „Eigene Sprache importieren“ wählen und die gewünschte JSON-Datei auswählen.
 3. Sprache auswählen, Einstellungen speichern und Programm neu starten.
 4. Hilfe → Bedienungsanleitung öffnet die lokale Hilfe dieser Sprache.

@@ -1,3 +1,12 @@
+# 1.2.1
+
+- DEB-Deinstallation schützt auch verlinkte übergeordnete Benutzerordner; Root-XDG-Pfade werden nicht an Benutzerbereinigung weitergegeben.
+- Vorhandene Oberfläche an die gemeinsame Darstellung angepasst; keine zusätzlichen optionalen Funktionen ergänzt.
+- Einstellungen unter Datei zwischen sichtbaren Trennlinien; Sprachauswahl bei Sprachpaketen.
+- Prüfaktionen über Menüleiste; Fortschritt im zentrierten Fenster mit sicherem Abbruch und automatischem Schließen.
+- Abwechselnde Ergebniszeilenfarben aus dem Systemtheme; Menühöhe unverändert.
+- Protokolleditor unter Hilfe; neue Protokollsitzungen sichtbar getrennt und lokales Datum im Format DD.MM.YYYY.
+
 # 1.2.0
 
 - Neue Programmeinträge im Log verwenden die gewählte Sprache und folgen einem gespeicherten Sprachwechsel sofort; vorhandene Einträge bleiben erhalten.

@@ -59,8 +59,19 @@ def is_shortcut(path):
         return False
 
 
+def safe_parents(path,include_self=False):
+    path=Path(os.path.abspath(path))
+    candidates=[path,*path.parents] if include_self else path.parents
+    if any(parent.is_symlink() for parent in candidates):
+        print('Checkweb: verlinkter Speicherort bleibt erhalten:',path,file=sys.stderr)
+        return False
+    return True
+
+
 def remove_tree(path):
     # Never follow a directory symlink into unrelated user files.
+    if not safe_parents(path):
+        return
     if path.is_symlink():
         path.unlink()
     elif path.is_dir():
@@ -90,16 +101,17 @@ def user_action(action, home):
     if action not in ('remove', 'purge'):
         return
     for folder in filter(None, [desktop, home / '.local/share/applications', home / '.config/autostart']):
-        if folder.is_dir():
+        if safe_parents(folder,include_self=True) and folder.is_dir():
             for target in folder.glob('*.desktop'):
                 if is_shortcut(target):
                     target.unlink()
     trash = home / '.local/share/Trash'
-    if (trash / 'files').is_dir():
+    if safe_parents(trash / 'files',include_self=True) and (trash / 'files').is_dir():
         for target in (trash / 'files').glob('*.desktop'):
             if is_shortcut(target):
                 target.unlink()
-                (trash / 'info' / (target.name + '.trashinfo')).unlink(missing_ok=True)
+                info=trash / 'info' / (target.name + '.trashinfo')
+                if safe_parents(info):info.unlink(missing_ok=True)
     # App-owned XDG directories only; never the development project or arbitrary reports.
     locations = [home / '.config', home / '.cache', home / '.local/share', home / '.local/state']
     for var in ('XDG_CONFIG_HOME', 'XDG_CACHE_HOME', 'XDG_DATA_HOME', 'XDG_STATE_HOME'):
@@ -126,9 +138,14 @@ def main():
         if not 1000 <= user.pw_uid < 65534 or user.pw_shell.endswith(('/nologin', '/false')):
             continue
         if not Path(user.pw_dir).is_dir():
+            print('Checkweb: Benutzerordner nicht erreichbar:',user.pw_name,file=sys.stderr)
             continue
+        # Root-XDG-Pfade gehören nicht zum Zielbenutzer.
+        environment=os.environ.copy()
+        for key in ('XDG_CONFIG_HOME','XDG_CACHE_HOME','XDG_DATA_HOME','XDG_STATE_HOME'):
+            environment.pop(key,None)
         result = subprocess.run(['/usr/sbin/runuser', '-u', user.pw_name, '--',
-                                 '/usr/bin/python3', '-B', str(Path(__file__).resolve()), '--user', action])
+                                 '/usr/bin/python3', '-B', str(Path(__file__).resolve()), '--user', action],env=environment)
         if result.returncode:
             failed.append(user.pw_name)
     if failed:

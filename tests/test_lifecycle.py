@@ -30,12 +30,19 @@ class LifecycleTests(unittest.TestCase):
         self.assertIn('normal beendet', text)
         self.assertIn('Exit-Code=0', text)
         self.assertIn('Laufzeit=', text)
-        self.assertRegex(text, r'\d{4}-\d\d-\d\d \d\d:\d\d:\d\d[+-]\d{4}')
+        self.assertRegex(text, r'\d\d\.\d\d\.\d{4} \d\d:\d\d:\d\d')
         self.assertEqual(logging.getLogger().handlers, handlers)
 
     def test_error_exit(self):
         self.assertEqual(execute_logged(lambda: 2, 'CLI lokal'), 2)
         self.assertIn('Exit-Code=2', self.log())
+
+    def test_sessions_are_separated_without_losing_old_entries(self):
+        execute_logged(lambda: 0,'GUI')
+        before=self.log()
+        execute_logged(lambda: 0,'GUI')
+        self.assertTrue(self.log().startswith(before))
+        self.assertEqual(self.log().count('='*72),4)
 
     def test_keyboard_interrupt(self):
         def interrupt(): raise KeyboardInterrupt()

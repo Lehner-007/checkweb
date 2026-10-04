@@ -77,9 +77,9 @@ with tempfile.TemporaryDirectory(prefix='checkweb-settings-') as tmp:
         about.close()
         bar=w.get_child().get_first_child();model=bar.get_menu_model()
         help_menu=model.get_item_link(3,'submenu')
-        assert help_menu.get_n_items()==2
+        assert help_menu.get_n_items()==3
         assert help_menu.get_item_attribute_value(0,'label',None).get_string()==w.tr('open_help')
-        assert help_menu.get_item_attribute_value(1,'label',None).get_string()==w.tr('about')
+        assert help_menu.get_item_attribute_value(2,'label',None).get_string()==w.tr('about')
         w.menu_actions['none'].activate(None)
         assert not any(x.get_active() for x in w.checkboxes.values())
         w.menu_actions['all'].activate(None)

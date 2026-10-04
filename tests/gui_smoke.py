@@ -39,11 +39,11 @@ def check():
  try:
   if ticks>150:raise AssertionError('GUI timeout')
   if stage==0:
-   window.start_button.emit('clicked');stage=1
+   window.menu_actions['start'].activate(None);stage=1
   elif stage==1 and window.report:
    assert window.report.status=='complete',window.report.status
    assert any(f.code=='file_missing' for f in window.report.findings)
-   assert window.export_button.get_sensitive()
+   assert window.menu_actions['export'].get_enabled()
    row=window.listbox.get_row_at_index(0);window.listbox.select_row(row)
    assert window.detail.get_buffer().get_char_count()>0
    save_report(window.report,Path(sandbox.name)/'gui-report.html')
@@ -59,11 +59,11 @@ def check():
     subprocess.run(['gnome-screenshot','-w','-f',os.environ['CHECKWEB_SCREENSHOT']],check=True,timeout=10)
    window.set_default_size(800,600);stage=4
   elif stage==4:
-   assert window.start_button.get_allocated_width()>0
+   assert window.menu_bar.get_allocated_width()>0
    window.severity.set_selected(1);window.search.set_text('fehlt')
    window.filter_changed()
    assert window.listbox.get_row_at_index(0) is not None
-   window.start_button.emit('clicked');window.cancel_scan();stage=5
+   window.menu_actions['start'].activate(None);window.cancel_scan();stage=5
   elif stage==5 and window.report:
    assert window.report.status=='cancelled',window.report.status
    print('GTK smoke passed: scan, results, selection, settings, export, resize, filter, cancellation')

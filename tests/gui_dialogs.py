@@ -74,7 +74,7 @@ with tempfile.TemporaryDirectory(prefix='checkweb-dialogs-') as tmp:
         assert not (root/'bad.txt').exists()
         assert notices[-1]==window.tr('report_extension')
         window.set_default_size(800,600);yield from pause()
-        assert window.start_button.get_allocated_width()>0
+        assert window.menu_bar.get_allocated_width()>0
         window.set_running(True)
         assert not window.menu_actions['start'].get_enabled()
         assert not window.menu_actions['export'].get_enabled()

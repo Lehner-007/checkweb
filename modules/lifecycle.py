@@ -12,6 +12,15 @@ from .i18n import Strings
 _log_strings = None
 
 
+class SessionFormatter(logging.Formatter):
+    def format(self,record):
+        text=super().format(record)
+        if getattr(record,'session_start',False):
+            line='='*72
+            return '\n'+line+'\n'+text+'\n'+line
+        return text
+
+
 def set_log_language(language):
     global _log_strings
     _log_strings = Strings(language)
@@ -38,8 +47,8 @@ def execute_logged(operation, mode, language=None):
         directory.mkdir(parents=True, exist_ok=True)
         handler = RotatingFileHandler(directory / 'checkweb.log', maxBytes=1_000_000,
                                       backupCount=2, encoding='utf-8')
-        handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s',
-                                              datefmt='%Y-%m-%d %H:%M:%S%z'))
+        handler.setFormatter(SessionFormatter('%(asctime)s %(levelname)s %(message)s',
+                                             datefmt='%d.%m.%Y %H:%M:%S'))
         root.addHandler(handler)
     except OSError:
         # Logging must not prevent the application from running.
@@ -60,7 +69,7 @@ def execute_logged(operation, mode, language=None):
 
     if threading.current_thread() is threading.main_thread():
         old_term = signal.signal(signal.SIGTERM, terminate)
-    logger.info(log_text('log_started', version=VERSION, pid=pid, mode=log_text('log_local') if mode=='CLI lokal' else mode))
+    logger.info(log_text('log_started', version=VERSION, pid=pid, mode=log_text('log_local') if mode=='CLI lokal' else mode),extra={'session_start':True})
     try:
         code = operation()
         code = 0 if code is None else code

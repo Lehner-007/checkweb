@@ -40,3 +40,5 @@ backup/
 
 # Lokale Fehlerliste, kein öffentlicher Quellbestand
 /fehler.txt
+/dogtruck-http-nachpruefung.html
+/dogtruck-local-nachpruefung.html

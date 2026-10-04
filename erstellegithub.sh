@@ -28,6 +28,7 @@ SECRET_NAMES={'.env','credentials','credentials.json','credentials.yaml',
               'id_rsa','id_ed25519','id_ecdsa','id_dsa','.netrc','.pypirc',
               '.npmrc','token.txt','tokens.json','passwords.txt'}
 SECRET_SUFFIXES={'.pem','.key','.p12','.pfx','.keystore'}
+LOCAL_REPORTS={'dogtruck-http-nachpruefung.html','dogtruck-local-nachpruefung.html'}
 PATTERNS=[
  re.compile(rb'-----BEGIN (?:RSA |EC |DSA |OPENSSH |ENCRYPTED )?PRIVATE KEY-----'),
  re.compile(rb'\bgh[pousr]_[A-Za-z0-9]{20,}\b'),
@@ -43,7 +44,7 @@ class Refused(Exception):pass
 def fail(message):raise Refused(message)
 
 def excluded(path):
- return str(path)=='fehler.txt' or any(part in EXCLUDED_DIRS for part in path.parts) or path.suffix.lower() in EXCLUDED_SUFFIXES or path.name.endswith('~') or path.name.startswith('.#')
+ return str(path)=='fehler.txt' or str(path) in LOCAL_REPORTS or any(part in EXCLUDED_DIRS for part in path.parts) or path.suffix.lower() in EXCLUDED_SUFFIXES or path.name.endswith('~') or path.name.startswith('.#')
 
 def secret_name(path):
  name=path.name.lower()

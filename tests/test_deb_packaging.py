@@ -67,6 +67,26 @@ class DesktopLifecycleTests(unittest.TestCase):
         self.assertFalse((trash / 'files/checkweb.desktop').exists())
         self.assertFalse((trash / 'info/checkweb.desktop.trashinfo').exists())
 
+    def test_parent_symlink_does_not_delete_external_data(self):
+        external=Path(self.tmp.name)/'unrelated'
+        (external/'checkweb').mkdir(parents=True)
+        marker=external/'checkweb/keep';marker.write_text('keep')
+        shutil=lifecycle.shutil
+        shutil.rmtree(self.home/'.config')
+        (self.home/'.config').symlink_to(external,target_is_directory=True)
+        lifecycle.user_action('remove',self.home)
+        self.assertEqual(marker.read_text(),'keep')
+        self.assertTrue((self.home/'.config').is_symlink())
+
+    def test_parent_symlink_preserves_foreign_shortcuts(self):
+        external=Path(self.tmp.name)/'other-share'
+        (external/'applications').mkdir(parents=True)
+        target=external/'applications/checkweb.desktop';target.write_text(lifecycle.DESKTOP)
+        (self.home/'.local').mkdir()
+        (self.home/'.local/share').symlink_to(external,target_is_directory=True)
+        lifecycle.user_action('remove',self.home)
+        self.assertTrue(target.exists())
+
     def test_unrelated_shortcut_not_overwritten(self):
         target = self.desktop / 'checkweb.desktop'
         target.write_text('[Desktop Entry]\nExec=other-app\n')

@@ -8,12 +8,13 @@ from datetime import datetime,timezone,timedelta
 from pathlib import Path
 import gi
 gi.require_version('Gtk','4.0')
-from gi.repository import Gtk,Gio,GLib,Pango
+from gi.repository import Gtk,Gio,GLib,Pango,Gdk
 from .model import CATEGORIES,VERSION,settings,config_dir,atomic_json,tools_available
 from .i18n import Strings
 from .engine import Scanner, normalize_url_input, canonical
 from .reports import SECTIONS, save_report, group_findings, finding_section, limit_messages, incomplete_messages, format_duration
 from .languages import import_pack,download_pack,download_version,download_catalog,ProgramIdentityError
+from .windows import center_after_map
 
 class Window(Gtk.ApplicationWindow):
     def __init__(self,app):
@@ -29,6 +30,7 @@ class Window(Gtk.ApplicationWindow):
         self.page=0
         self.dialogs=[]
         self.closing=False
+        self.progress_window=None
         self.connect('close-request',self.close_request)
         outer=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=10)
         for method in ('set_margin_top','set_margin_bottom','set_margin_start','set_margin_end'):getattr(outer,method)(14)
@@ -56,8 +58,6 @@ class Window(Gtk.ApplicationWindow):
         left=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=8)
         header=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=5)
         header.append(self.translated_label('checks',hexpand=True,xalign=0))
-        header.append(self.button('select_all_checks',lambda *_:self.select_all(True)))
-        header.append(self.button('clear_checks',lambda *_:self.select_all(False)))
         left.append(header)
         self.checkboxes={}
         capabilities={x['category']:x for x in tools_available()}
@@ -107,8 +107,20 @@ class Window(Gtk.ApplicationWindow):
         results.set_measure_overlay(self.watermark,False)
         self.listbox.add_css_class('checkweb-results')
         css=Gtk.CssProvider()
-        css.load_from_data(b'list.checkweb-results { background-color: transparent; }')
-        self.listbox.get_style_context().add_provider(css,Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        css.load_from_data(b'''
+            list.checkweb-results { background-color: transparent; }
+            list.checkweb-results > row:nth-child(even):not(:selected):not(:hover) {
+                background-color: alpha(@theme_fg_color, 0.09);
+            }
+            .checkweb-menubar popover.menu separator {
+                min-height: 1px;
+                background-color: alpha(@theme_fg_color, 0.45);
+                margin-top: 4px;
+                margin-bottom: 4px;
+            }
+        ''')
+        self.style_provider=css
+        Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(),css,Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
         results.add_overlay(scroll)
         results.set_measure_overlay(scroll,True)
         right.append(results)
@@ -120,34 +132,38 @@ class Window(Gtk.ApplicationWindow):
         self.detail=Gtk.TextView(editable=False,cursor_visible=False,wrap_mode=Gtk.WrapMode.WORD_CHAR)
         ds=Gtk.ScrolledWindow(min_content_height=150);ds.set_child(self.detail);right.append(ds)
         self.pane.set_end_child(right)
-        action=Gtk.Box(spacing=8)
-        self.start_button=self.button('start',self.start_scan);action.append(self.start_button)
-        self.cancel_button=self.button('cancel',self.cancel_scan);self.cancel_button.set_sensitive(False);action.append(self.cancel_button)
-        self.export_button=self.button('export',self.export);self.export_button.set_sensitive(False);action.append(self.export_button)
         self.status=Gtk.Label(label=self.tr('ready'),xalign=0,hexpand=True,ellipsize=Pango.EllipsizeMode.MIDDLE)
-        action.append(self.status);outer.append(action)
-        self.progress=Gtk.ProgressBar(show_text=False);outer.append(self.progress)
+        outer.append(self.status)
         self.render()
         GLib.timeout_add(180,self.pulse)
         GLib.idle_add(self.auto_update)
 
     def build_menu(self):
         menu=Gio.Menu()
-        groups=[('menu_file',[('browse',self.choose_folder),('export',self.export),('quit',lambda *_:self.close())]),
+        groups=[('menu_file',[('browse',self.choose_folder),('export',self.export),None,('settings',self.show_settings),None,('quit',lambda *_:self.close())]),
                 ('checks',[('start',self.start_scan),('cancel',self.cancel_scan),('all',lambda *_:self.select_all(True)),('none',lambda *_:self.select_all(False))]),
-                ('menu_options',[('tools',self.show_tools),('settings',self.show_settings),('log',self.show_log)]),
-                ('help',[('help',self.show_help),('about',self.show_about)])]
+                ('menu_options',[('tools',self.show_tools)]),
+                ('help',[('help',self.show_help),('log',self.show_log),('about',self.show_about)])]
         for label,entries in groups:
             submenu=Gio.Menu()
-            for key,callback in entries:
+            section=Gio.Menu()
+            for entry in entries:
+                if entry is None:
+                    submenu.append_section(None,section);section=Gio.Menu()
+                    continue
+                key,callback=entry
                 if key not in self.menu_actions:
                     action=Gio.SimpleAction.new(key,None)
                     action.connect('activate',lambda a,p,fn=callback:fn())
                     self.add_action(action);self.menu_actions[key]=action
                     if key in ('export','cancel'):action.set_enabled(False)
-                submenu.append(self.tr({'all':'select_all_checks','none':'clear_checks','help':'open_help'}.get(key,key)),'win.'+key)
+                section.append(self.tr({'all':'select_all_checks','none':'clear_checks','help':'open_help'}.get(key,key)),'win.'+key)
+            if None in entries:submenu.append_section(None,section)
+            else:submenu=section
             menu.append_submenu(self.tr(label),submenu)
-        return Gtk.PopoverMenuBar.new_from_model(menu)
+        bar=Gtk.PopoverMenuBar.new_from_model(menu)
+        bar.add_css_class('checkweb-menubar')
+        return bar
 
     def bind_translation(self,widget,property_name,key):
         self.translation_bindings.append((widget,property_name,key))
@@ -284,16 +300,35 @@ class Window(Gtk.ApplicationWindow):
         self.worker.start()
 
     def set_running(self,running):
-        for w in (self.start_button,self.target,self.mode):w.set_sensitive(not running)
+        for w in (self.target,self.mode):w.set_sensitive(not running)
         self.folder.set_sensitive(not running and self.mode.get_selected()==0)
         for key in ('start','settings'):self.menu_actions[key].set_enabled(not running)
         self.menu_actions['browse'].set_enabled(not running and self.mode.get_selected()==0)
         self.menu_actions['cancel'].set_enabled(running)
         self.menu_actions['export'].set_enabled(not running and self.report is not None)
         self.clear_target_button.set_sensitive(not running and bool(self.target.get_text()))
-        self.cancel_button.set_sensitive(running)
-        self.export_button.set_sensitive(not running and self.report is not None)
         self.status.set_label(self.tr('running' if running else self.report.status if self.report else 'ready'))
+        if running:self.show_progress()
+        else:self.close_progress()
+
+    def show_progress(self):
+        window=Gtk.Window(title=self.tr('running'),transient_for=self,modal=True,default_width=480,resizable=False)
+        window.set_name('checkweb-progress')
+        box=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=12,margin_top=20,margin_bottom=20,margin_start=20,margin_end=20)
+        window.set_child(box)
+        self.progress_label=Gtk.Label(label=self.tr('running'),wrap=True,xalign=0,max_width_chars=65)
+        box.append(self.progress_label)
+        self.progress=Gtk.ProgressBar();box.append(self.progress)
+        self.progress_cancel=self.button('cancel',self.cancel_scan);box.append(self.progress_cancel)
+        # Schließen fordert einen sicheren Abbruch an und wartet auf das Ende.
+        window.connect('close-request',lambda *_:(self.cancel_scan(),True)[1])
+        window.connect('map',lambda *_:center_after_map(window,self))
+        self.progress_window=window
+        window.present()
+
+    def close_progress(self):
+        if self.progress_window:
+            self.progress_window.destroy();self.progress_window=None
 
     def scan_worker(self,mode,target,opts):
         try:
@@ -310,27 +345,31 @@ class Window(Gtk.ApplicationWindow):
             GLib.idle_add(self.worker_error,str(exc))
 
     def worker_error(self,text):
-        self.set_running(False);self.notify(text,self.tr('error_title'));return False
+        self.set_running(False)
+        if self.closing:self.destroy()
+        else:self.notify(text,self.tr('error_title'))
+        return False
 
     def update_progress(self,n,target):
-        if not self.closing:self.status.set_label(self.tr('progress',count=n,target=target))
+        if self.progress_window and not self.cancel_event.is_set():
+            self.progress_label.set_label(self.tr('progress',count=n,target=target))
         return False
 
     def scan_done(self,report):
         self.report=report
         self.page=0
         self.set_running(False)
-        self.progress.set_fraction(0 if report.status!='complete' else 1)
         self.render()
         if self.closing:self.destroy()
         return False
 
     def pulse(self):
-        if self.worker and self.worker.is_alive():self.progress.pulse()
+        if self.progress_window and self.worker and self.worker.is_alive():self.progress.pulse()
         return not self.closing
 
     def cancel_scan(self,*_):
-        self.cancel_event.set();self.cancel_button.set_sensitive(False)
+        self.cancel_event.set()
+        if self.progress_window:self.progress_cancel.set_sensitive(False)
         self.menu_actions['cancel'].set_enabled(False)
 
     def filter_changed(self,*_):self.page=0;self.render()
@@ -478,13 +517,12 @@ class Window(Gtk.ApplicationWindow):
         lang=Gtk.DropDown.new_from_strings([self.tr.language_name(code) for code in codes])
         lang.set_selected(codes.index(self.tr.code) if self.tr.code in codes else codes.index('en'))
         lang.set_name('installed_languages')
-        label('language');box.append(lang)
         def refresh_languages(code):
             codes[:] = Strings.languages()
             lang.set_model(Gtk.StringList.new([self.tr.language_name(item) for item in codes]))
             lang.set_selected(codes.index(code) if code in codes else codes.index('en'))
 
-        group('scan_settings')
+        label('scan_settings')
         label('zero_limits')
         for key,low,high in [('max_pages',0,10000),('max_depth',0,20),('max_resources',0,50000),('timeout',0,60)]:
             row=Gtk.Box(spacing=8)
@@ -511,6 +549,7 @@ class Window(Gtk.ApplicationWindow):
         controls['update_url']=Gtk.Entry(text=self.opts['update_url']);box.append(controls['update_url'])
         box.append(self.button('update_now',lambda *_:self.check_update(controls['update_url'].get_text())))
         group('language_extensions')
+        label('language');box.append(lang)
         label('source_url')
         controls['source_url']=Gtk.Entry(text=self.opts['source_url']);box.append(controls['source_url'])
         box.append(self.button('import_language',lambda *_:self.import_language(on_installed=refresh_languages)))

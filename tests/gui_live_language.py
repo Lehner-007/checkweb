@@ -49,7 +49,7 @@ with tempfile.TemporaryDirectory() as tmp,patch.dict(os.environ,{'XDG_CONFIG_HOM
         assert window.tr.code=='en'
         from modules.lifecycle import log_text
         assert log_text('log_scan_worker')=='Scan worker failed'
-        assert window.start_button.get_label()==window.tr('start')
+        assert window.menu_actions['start'].get_enabled()
         assert window.mode.get_model().get_string(0)==window.tr('local')
         assert window.report is report and window.target is target_widget
         assert window.target.get_text()==str(site) and window.search.get_text()=='missing'
@@ -66,7 +66,7 @@ with tempfile.TemporaryDirectory() as tmp,patch.dict(os.environ,{'XDG_CONFIG_HOM
             assert log_text('log_scan_worker')==window.tr('log_scan_worker')
             assert window.target.get_direction()==Gtk.TextDirection.LTR
             assert window.report is report and window.target is target_widget
-            assert window.start_button.get_label()==window.tr('start')
+            assert window.menu_actions['start'].get_enabled()
         settings=window.show_settings()
         choice=next(w for w in walk(settings) if w.get_name()=='installed_languages')
         choice.set_selected(2)
