@@ -1,4 +1,9 @@
 {
   "program_id": "checkweb",
-  "version": "1.3.0"
+  "version": "1.3.0",
+  "deb": {
+    "url": "https://github.com/Lehner-007/checkweb/releases/download/v1.3.0/checkweb_1.3.0_all.deb",
+    "filename": "checkweb_1.3.0_all.deb",
+    "sha256": "4e78402fa439b09ac1d58a43ad06af70413b8212d7967ae2c86ad91405c0c4d4"
+  }
 }
