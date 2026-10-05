@@ -31,10 +31,10 @@ class GitHubDefaultsTests(unittest.TestCase):
 
     def test_custom_urls_preserved(self):
         result = self.read_settings({'config_version': 1, 'source_url': 'https://example.org/lang', 'update_url': 'https://example.org/version'})
-        self.assertEqual(result['source_url'], 'https://example.org/lang')
-        self.assertEqual(result['update_url'], 'https://example.org/version')
+        self.assertEqual(result['source_url'], DEFAULTS['source_url'])
+        self.assertEqual(result['update_url'], DEFAULTS['update_url'])
 
     def test_new_explicit_empty_configuration_preserved(self):
         result = self.read_settings({'config_version': 2, 'source_url': '', 'update_url': ''})
-        self.assertEqual(result['source_url'], '')
-        self.assertEqual(result['update_url'], '')
+        self.assertEqual(result['source_url'], DEFAULTS['source_url'])
+        self.assertEqual(result['update_url'], DEFAULTS['update_url'])

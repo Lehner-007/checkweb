@@ -22,7 +22,7 @@ with tempfile.TemporaryDirectory(prefix='checkweb-dialogs-') as tmp:
     Gtk.Settings.get_default().set_property('gtk-application-prefer-dark-theme',bool(os.environ.get('CHECKWEB_DARK')))
     caps=tools_available()
     for tool in caps:
-        if tool['name']=='tidy':tool['available']=False
+        if tool['name']=='node':tool['available']=False
     with patch('modules.gui.tools_available',return_value=caps):window=Window(app)
     window.present()
     notices=[]
@@ -32,7 +32,7 @@ with tempfile.TemporaryDirectory(prefix='checkweb-dialogs-') as tmp:
         for _ in range(5):yield
     def scenario():
         yield from pause()
-        assert 'tidy' in window.tool_notice.get_label()
+        assert 'node' in window.tool_notice.get_label()
         assert window.tool_notice.get_visible()
         assert isinstance(window.get_child().get_first_child(),Gtk.PopoverMenuBar)
         window.mode.set_selected(1)
@@ -81,7 +81,7 @@ with tempfile.TemporaryDirectory(prefix='checkweb-dialogs-') as tmp:
         window.cancel_scan();assert not window.menu_actions['cancel'].get_enabled()
         window.set_running(False)
         window.close()
-        print('PASS: menu, HTTPS preset, missing tidy, chooser lifetime, folder select/cancel, HTML/JSON save/cancel, invalid extension, resize and action state')
+        print('PASS: menu, HTTPS preset, missing node, chooser lifetime, folder select/cancel, HTML/JSON save/cancel, invalid extension, resize and action state')
     steps=scenario()
     def advance():
         try:next(steps)

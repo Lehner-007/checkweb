@@ -7,8 +7,6 @@ on:
         required: true
         default: v1.2.0
   push:
-    branches: [main]
-    paths: [.github/workflows/release.yml]
     tags: ['v*']
 permissions:
   contents: write
@@ -67,6 +65,8 @@ jobs:
           digest = hashlib.sha256(package.read_bytes()).hexdigest()
           Path('dist/SHA256SUMS').write_text(f'{digest}  {package.name}\n')
           PY
+      - name: Prepare verified download metadata
+        run: python3 packaging/prepare_update.py "dist/$DEB_NAME" dist/version.json
       - name: Attach DEB and publish release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -81,5 +81,25 @@ jobs:
               --notes "Checkweb ${RELEASE_TAG#v}. Das DEB wurde aus diesem Versionstag gebaut und der enthaltene Programmcode geprüft."
           fi
           # Do not overwrite existing release assets.
-          gh release upload "$RELEASE_TAG" "dist/$DEB_NAME" dist/SHA256SUMS
+          gh release upload "$RELEASE_TAG" "dist/$DEB_NAME" dist/SHA256SUMS dist/version.json
           gh release edit "$RELEASE_TAG" --draft=false
+
+      - name: Publish matching update metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          python3 - <<'PYCODE'
+          import base64,json,os,subprocess
+          from pathlib import Path
+          repo=os.environ['GH_REPO']
+          def read(path):
+              return json.loads(subprocess.check_output(['gh','api',f'repos/{repo}/contents/{path}?ref=main'],text=True))
+          main_version=base64.b64decode(read('VERSION')['content']).decode().strip()
+          version=Path('VERSION').read_text().strip()
+          if main_version!=version:
+              raise SystemExit('Main has a different version; preserve its update metadata.')
+          old=read('github/version.json')
+          payload={'message':f'Update verified download metadata for {version}', 'branch':'main', 'sha':old['sha'], 'content':base64.b64encode(Path('dist/version.json').read_bytes()).decode()}
+          subprocess.run(['gh','api','--method','PUT',f'repos/{repo}/contents/github/version.json','--input','-'],input=json.dumps(payload),text=True,check=True,stdout=subprocess.DEVNULL)
+          PYCODE

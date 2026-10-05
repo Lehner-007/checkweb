@@ -1,3 +1,12 @@
+# 1.3.0
+
+- Unbenutztes tidy aus Werkzeugerkennung und Info entfernt; html5lib bleibt sichtbar.
+
+- Versionsprüfung bei jedem Start, Status und geprüfter DEB-Download in den Downloadordner.
+- Projektgebundene GitHub-Quellen statt bearbeitbarer Adressen.
+- Werkzeugübersicht mit Informationssymbol unter Hilfe → Info.
+- Vier feste Fortschrittstextzeilen und begrenztes Über-Bild.
+
 # 1.2.1
 
 - DEB-Deinstallation schützt auch verlinkte übergeordnete Benutzerordner; Root-XDG-Pfade werden nicht an Benutzerbereinigung weitergegeben.

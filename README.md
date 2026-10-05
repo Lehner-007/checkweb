@@ -1,6 +1,6 @@
 # checkweb
 
-Aktuelle Version: **1.2.1**. Die zentrale Versionsquelle ist `VERSION`.
+Aktuelle Version: **1.3.0**. Die zentrale Versionsquelle ist `VERSION`.
 
 GTK-4-Anwendung zur lokalen und Online-Prüfung von Webseiten. Entwicklung für Linux Mint/Cinnamon. GPL-3.0-only, Copyright 2026 Josef. Vollständiger Lizenztext: LICENSE.
 
@@ -22,7 +22,7 @@ Standardgrenzen: 100 Seiten, Linktiefe 3, 300 Dateien/HTTP-Anfragen und 10 Sekun
 
 DE/EN und lokale HTML-Hilfe liegen unter lang/ und help/. Eigene JSON-Pakete importieren: `{"program_id":"checkweb","code":"fr","strings":{"start":"Démarrer"},"help_html":"<h1>Aide</h1><p>…</p>"}`. Fehlende Schlüssel fallen auf Englisch zurück; Platzhalter müssen übereinstimmen. Eigenes HTML wird auf passive Inhalte begrenzt. Vorhandene Sprachpakete werden nicht überschrieben.
 
-Optionale Downloadquelle: direkte HTTPS-GitHub-Basisadresse, aus der `<code>.json` geladen wird. Voreingestellt ist `https://raw.githubusercontent.com/Lehner-007/checkweb/main/github/sprachpakete`. Die optionale Versionsquelle liefert `{"program_id":"checkweb","version":"1.2.1"}`. Es werden keine Updates installiert. Monatsintervalle entsprechen 30 Tagen.
+Interne Downloadquelle: direkte HTTPS-GitHub-Basisadresse, aus der `<code>.json` geladen wird. Voreingestellt ist `https://raw.githubusercontent.com/Lehner-007/checkweb/main/github/sprachpakete`. Die interne Versionsquelle liefert `{"program_id":"checkweb","version":"1.3.0"}`. Es werden keine Updates installiert. Monatsintervalle entsprechen 30 Tagen.
 
 ## Prüfen
 
@@ -38,7 +38,7 @@ Externe Bibliotheken werden nicht mit dem Programm kopiert, sondern als getrennt
 
 ## Bedienkorrekturen
 
-Menüzeile mit Datei, Prüfungen, Optionen und Hilfe. Online-Adressen ohne Protokoll erhalten `https://`. Dateidialoge werden bis zum Abschluss gehalten und mit vorhandenem Startordner geöffnet. Berichtsexport ergänzt fehlende Endungen entsprechend HTML/JSON. Fehlende Werkzeuge erscheinen im Hauptfenster und im Log; `tidy` ist optional und wird vom aktuellen HTML-Prüfer (html5lib) nicht ausgeführt.
+Menüzeile mit Datei, Prüfungen und Hilfe. Online-Adressen ohne Protokoll erhalten `https://`. Dateidialoge werden bis zum Abschluss gehalten und mit vorhandenem Startordner geöffnet. Berichtsexport ergänzt fehlende Endungen entsprechend HTML/JSON. Fehlende Werkzeuge erscheinen im Hauptfenster und im Log.
 
 ## HTTP-Bewertung und Berichte
 
@@ -126,9 +126,9 @@ Anforderungen: `docs/manuelle_kontrolle.dm`; Regressionen: `tests/test_manual_re
 
 Das Programm-ZIP enthält DE/EN samt lokaler HTML-Hilfe. Nach dem Entpacken mit `python3 checkweb.py` starten; die oben genannten Systemabhängigkeiten müssen verfügbar sein. `start.sh` ist nur für die Entwicklung und liegt nicht im ZIP. Private Einstellungen, Logs und Testdateien werden nicht ausgeliefert.
 
-Arabisch, Spanisch, Französisch, Hindi, Portugiesisch, Russisch, Türkisch und vereinfachtes Chinesisch stehen als getrennte JSON-Sprachpakete mit vollständiger Hilfe bereit. Im Menü Datei → Einstellungen importieren, Sprache auswählen, speichern; die Oberfläche schaltet sofort um. Bestehende eigene Sprachpakete werden erhalten; ein erneuter Import desselben Sprachcodes wird abgelehnt. Die GitHub-Downloadquelle ist voreingestellt; eigene Adressen bleiben erhalten.
+Arabisch, Spanisch, Französisch, Hindi, Portugiesisch, Russisch, Türkisch und vereinfachtes Chinesisch stehen als getrennte JSON-Sprachpakete mit vollständiger Hilfe bereit. Im Menü Datei → Einstellungen importieren, Sprache auswählen, speichern; die Oberfläche schaltet sofort um. Bestehende eigene Sprachpakete werden erhalten; ein erneuter Import desselben Sprachcodes wird abgelehnt. Die GitHub-Downloadquelle ist voreingestellt; die Quellen sind fest im Programm hinterlegt.
 
-Der Fenstertitel zeigt die Version. Werkzeuge stehen im Optionen-Menü, Einstellungen unter Datei mit sichtbaren Trennlinien, die Bedienungsanleitung im Hilfe-Menü. Der Über-Dialog verwendet `assets/checkweb.png`. Siehe `CHANGELOG.md`.
+Der Fenstertitel zeigt die Version. Werkzeuge stehen unter Hilfe → Info, Einstellungen unter Datei mit sichtbaren Trennlinien, die Bedienungsanleitung im Hilfe-Menü. Der Über-Dialog verwendet `assets/checkweb.png`. Siehe `CHANGELOG.md`.
 
 ## Programmkennung ab 1.0.2
 
@@ -158,7 +158,7 @@ Bei einem Verbindungs- oder Pushfehler können ein lokaler Commit und Tag bereit
 
 `./erstelledeb.sh` erstellt das DEB aus der zentralen `VERSION`, ohne die Programmversion zu ändern. Das Paket installiert einen Menüeintrag und auf vorhandenen, aktivierten Benutzer-Desktops eine Checkweb-Verknüpfung. `python3-html5lib` ist eine Pflichtabhängigkeit; die Installation mit APT löst diese auf. Ein bloßer Aufruf von `dpkg -i` lädt fehlende Abhängigkeiten nicht herunter.
 
-Installation: `sudo apt install ./checkweb_1.2.1_all.deb`. Entfernung: `sudo apt remove checkweb`. Bereits beim Entfernen werden Checkwebs persönliche Einstellungen, Profile, Sprachdateien, Hilfen, Logs, Caches und Zustandsdaten in seinen Benutzerordnern gelöscht. Erkannte Checkweb-Verknüpfungen werden ebenfalls entfernt, einschließlich solcher im Benutzer-Papierkorb. Der Entwicklungsordner und unabhängig gespeicherte Berichte bleiben erhalten. Bei einem Upgrade bleiben Benutzerdateien erhalten.
+Installation: `sudo apt install ./checkweb_1.3.0_all.deb`. Entfernung: `sudo apt remove checkweb`. Bereits beim Entfernen werden Checkwebs persönliche Einstellungen, Profile, Sprachdateien, Hilfen, Logs, Caches und Zustandsdaten in seinen Benutzerordnern gelöscht. Erkannte Checkweb-Verknüpfungen werden ebenfalls entfernt, einschließlich solcher im Benutzer-Papierkorb. Der Entwicklungsordner und unabhängig gespeicherte Berichte bleiben erhalten. Bei einem Upgrade bleiben Benutzerdateien erhalten.
 
 Die Bereinigung läuft mit den Rechten des jeweiligen Benutzers. Nicht erreichbare Benutzerordner und abweichende, bei der Paketverwaltung nicht bekannte XDG-Pfade müssen gegebenenfalls gesondert geprüft werden. Die Desktop-Vertrauensmarkierung wird gesetzt, soweit die Sitzung sie unterstützt; andernfalls kann Cinnamon beim ersten Start eine Bestätigung verlangen.
 
@@ -172,7 +172,7 @@ Normale GUI- und Prüfläufe protokollieren Start und Ende mit Datum, Uhrzeit, Z
 - Versionsprüfung: https://raw.githubusercontent.com/Lehner-007/checkweb/main/github/version.json
 - Sprachpakete: https://raw.githubusercontent.com/Lehner-007/checkweb/main/github/sprachpakete
 
-Leere Quellen aus alten Einstellungen werden beim Laden mit diesen Vorgaben ergänzt. Eigene Quellen bleiben erhalten. Die automatische Versionsprüfung bleibt standardmäßig ausgeschaltet; keine automatische Installation.
+Leere Quellen aus alten Einstellungen werden beim Laden mit diesen Vorgaben ergänzt. Gespeicherte eigene Quellen werden durch die Projektquellen ersetzt. Prüfung bei jedem Start; eine zusätzliche regelmäßige Prüfung ist optional. Keine automatische Installation.
 
 ## Sprachauswahl
 
@@ -180,6 +180,16 @@ Installierte Sprachen erscheinen mit ausgeschriebenen Namen in der gewählten Ob
 
 Neue programmgesteuerte Logmeldungen verwenden die eingestellte Sprache, auch nach einem gespeicherten Sprachwechsel. Vorhandene Einträge bleiben unverändert. Technische Fremdmeldungen und Tracebacks bleiben im Original.
 
-## Einheitliche Darstellung in 1.2.1
+## Einheitliche Darstellung
 
 Einstellungen stehen unter Datei zwischen sichtbaren Trennlinien. Die Sprachauswahl steht bei den Sprachpaketen. Start, Abbrechen, Bericht speichern und Prüfauswahl werden über die Menüleiste bedient. Während der Webseitenprüfung zeigt ein zentriertes Fenster den aktuellen Vorgang, Fortschritt und Abbrechen; es schließt nach Abschluss oder Abbruch. Ergebniszeilen wechseln ihre Hintergrundhelligkeit. Neue Protokollsitzungen erhalten sichtbare Trenner und lokale Datumsangaben DD.MM.YYYY HH:MM:SS. Der vorhandene Protokolleditor ist unter Hilfe erreichbar. Die Menühöhe bleibt unverändert. Es werden keine Profile, Demonstrationen, zusätzlichen Exportformate oder Fensterzustandsmodule ergänzt.
+
+## Updates in 1.3.0
+
+Die Software wird bei jedem Start geprüft. In Datei → Einstellungen erscheint Software aktuell, Update verfügbar oder eine Meldung über eine fehlgeschlagene Prüfung. GitHub-Adressen sind interne Vorgaben. Der Download-Button ist nur bei einer neueren Version mit gültigen DEB-Metadaten aktiv. Er lädt in den persönlichen Downloadordner und prüft SHA-256, Paketname, Version und Architektur. Abbruch entfernt die unvollständige Datei; vorhandene andere Dateien werden nicht überschrieben. Installation erfolgt anschließend durch den Anwender.
+
+Die veröffentlichte Versionsdatei benötigt für Downloads zusätzlich `deb` mit `url`, `filename` und `sha256` des tatsächlich erstellten Release-Pakets. Ohne diese Angaben wird kein ungeprüfter Download angeboten. Bei einer Veröffentlichung müssen diese Angaben zum angehängten DEB passen.
+
+Hilfe → Info zeigt erkannte Werkzeuge, Versionen und Paketnamen. Fortschrittsfenster halten vier Textzeilen bereit; längere Meldungen sind scrollbar. Das Bild im Über-Dialog ist auf 128 × 128 Pixel begrenzt.
+
+Nach dem DEB-Bau erzeugt `python3 packaging/prepare_update.py dist/checkweb_1.3.0_all.deb github/version.json` die zugehörigen geprüften Download-Metadaten. Die Release-Automation übernimmt das aus ihrem tatsächlichen DEB und aktualisiert die öffentliche Versionsdatei erst nach erfolgreicher Veröffentlichung.

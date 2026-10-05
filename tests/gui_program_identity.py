@@ -25,10 +25,11 @@ with tempfile.TemporaryDirectory(prefix='checkweb-identity-gui-') as tmp:
         before=(config_dir()/'settings.json').read_bytes()
         for data in ({'program_id':'another-project','version':'999.0.0'},{'version':'999.0.0'}):
             notices.clear()
-            with patch('modules.languages.github_json',return_value=data):
+            with patch('modules.updates.github_json',return_value=data):
                 window.check_update('https://raw.githubusercontent.com/example/project/main/version.json')
-                wait_for(lambda:bool(notices))
-            assert notices==[window.tr('wrong_program')]
+                wait_for(lambda:not window.update_check_running)
+            assert window.update_status_key=='software_check_failed'
+            assert not notices
             assert window.opts['last_update_check']=='unchanged'
             assert (config_dir()/'settings.json').read_bytes()==before
         path=Path(tmp)/'foreign.json'
@@ -39,10 +40,11 @@ with tempfile.TemporaryDirectory(prefix='checkweb-identity-gui-') as tmp:
         assert notices==[window.tr('wrong_program')]
         assert not (config_dir()/'languages/fr').exists()
         notices.clear()
-        with patch('modules.languages.github_json',return_value={'program_id':'checkweb','version':VERSION}):
+        with patch('modules.updates.github_json',return_value={'program_id':'checkweb','version':VERSION}):
             window.check_update('https://raw.githubusercontent.com/example/project/main/version.json')
-            wait_for(lambda:bool(notices))
-        assert notices==[window.tr('version_result',current=VERSION,latest=VERSION)]
+            wait_for(lambda:not window.update_check_running)
+        assert window.update_status_key=='software_current'
+        assert not notices
         assert window.opts['last_update_check']!='unchanged'
         assert json.loads((config_dir()/'settings.json').read_text())['last_update_check']==window.opts['last_update_check']
         assert window.get_title()==f'checkweb {VERSION}'

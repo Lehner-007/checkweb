@@ -22,6 +22,8 @@ DEFAULTS = dict(config_version=2, language='de', max_pages=100, max_depth=3,
                 update_url='https://raw.githubusercontent.com/Lehner-007/checkweb/main/github/version.json', update_check=False,
                 update_interval_value=1, update_interval_unit='weeks', last_update_check='')
 
+PROJECT = dict(update_url=DEFAULTS['update_url'],source_url=DEFAULTS['source_url'],deb={'package':'checkweb'})
+
 def now():
     return datetime.now(timezone.utc).isoformat(timespec='seconds')
 
@@ -61,6 +63,8 @@ def settings():
         result[key] = max(lo,min(hi,result[key]))
     result['delay'] = max(0.05,min(5.0,result['delay']))
     result['categories'] = [c for c in result['categories'] if c in CATEGORIES]
+    result['update_url']=PROJECT['update_url']
+    result['source_url']=PROJECT['source_url']
     return result
 
 def tools_available():
@@ -71,7 +75,6 @@ def tools_available():
         ('php', 'php', 'php-cli', 'command'),
         ('structured', 'lxml', 'python3-lxml', 'module'),
         ('images', 'PIL', 'python3-pil', 'module'),
-        ('html-extra', 'tidy', 'tidy', 'command'),
     ]
     result=[]
     for c,n,p,kind in entries:

@@ -9,12 +9,15 @@ from pathlib import Path
 import gi
 gi.require_version('Gtk','4.0')
 from gi.repository import Gtk,Gio,GLib,Pango,Gdk
-from .model import CATEGORIES,VERSION,settings,config_dir,atomic_json,tools_available
+from .model import CATEGORIES,VERSION,PROJECT,settings,config_dir,atomic_json,tools_available
 from .i18n import Strings
 from .engine import Scanner, normalize_url_input, canonical
 from .reports import SECTIONS, save_report, group_findings, finding_section, limit_messages, incomplete_messages, format_duration
 from .languages import import_pack,download_pack,download_version,download_catalog,ProgramIdentityError
 from .windows import center_after_map
+from .updates import release_info,download_update
+from .jobs import JobRunner,Cancelled
+from .menus import compact_menus
 
 class Window(Gtk.ApplicationWindow):
     def __init__(self,app):
@@ -26,6 +29,14 @@ class Window(Gtk.ApplicationWindow):
         Gtk.Widget.set_default_direction(Gtk.TextDirection.RTL if self.tr.code.split('-')[0] in ('ar','he','fa','ur') else Gtk.TextDirection.LTR)
         self.report=None
         self.worker=None
+        self._closed=False
+        self.update_info=None
+        self.update_status_key="software_checking"
+        self.update_check_running=False
+        self.update_jobs=JobRunner(lambda callback:GLib.idle_add(lambda:(callback(),False)[1]))
+        self.update_window=None
+        self.settings_windows=[]
+        self.scan_running=False
         self.cancel_event=threading.Event()
         self.page=0
         self.dialogs=[]
@@ -136,14 +147,14 @@ class Window(Gtk.ApplicationWindow):
         outer.append(self.status)
         self.render()
         GLib.timeout_add(180,self.pulse)
-        GLib.idle_add(self.auto_update)
+        GLib.idle_add(self.initial_update)
+        self.update_timer=GLib.timeout_add_seconds(60,self.auto_update)
 
     def build_menu(self):
         menu=Gio.Menu()
         groups=[('menu_file',[('browse',self.choose_folder),('export',self.export),None,('settings',self.show_settings),None,('quit',lambda *_:self.close())]),
                 ('checks',[('start',self.start_scan),('cancel',self.cancel_scan),('all',lambda *_:self.select_all(True)),('none',lambda *_:self.select_all(False))]),
-                ('menu_options',[('tools',self.show_tools)]),
-                ('help',[('help',self.show_help),('log',self.show_log),('about',self.show_about)])]
+                ('help',[('help',self.show_help),('log',self.show_log),('menu_info',self.show_tools),('about',self.show_about)])]
         for label,entries in groups:
             submenu=Gio.Menu()
             section=Gio.Menu()
@@ -157,12 +168,15 @@ class Window(Gtk.ApplicationWindow):
                     action.connect('activate',lambda a,p,fn=callback:fn())
                     self.add_action(action);self.menu_actions[key]=action
                     if key in ('export','cancel'):action.set_enabled(False)
-                section.append(self.tr({'all':'select_all_checks','none':'clear_checks','help':'open_help'}.get(key,key)),'win.'+key)
+                item=Gio.MenuItem.new(self.tr({'all':'select_all_checks','none':'clear_checks','help':'open_help'}.get(key,key)),'win.'+key)
+                if key=='menu_info':item.set_icon(Gio.ThemedIcon.new('dialog-information-symbolic'))
+                section.append_item(item)
             if None in entries:submenu.append_section(None,section)
             else:submenu=section
             menu.append_submenu(self.tr(label),submenu)
         bar=Gtk.PopoverMenuBar.new_from_model(menu)
         bar.add_css_class('checkweb-menubar')
+        compact_menus(bar)
         return bar
 
     def bind_translation(self,widget,property_name,key):
@@ -213,6 +227,10 @@ class Window(Gtk.ApplicationWindow):
         running=bool(self.worker and self.worker.is_alive())
         self.status.set_label(self.tr('running' if running else self.report.status if self.report else 'ready'))
         self.render()
+        self.refresh_update_controls()
+        compact_menus(self.menu_bar)
+        for dialog in self.dialogs:
+            if hasattr(dialog,'refresh_info'):dialog.refresh_info()
         if selected_finding is not None:
             row=self.listbox.get_first_child()
             while row:
@@ -283,6 +301,7 @@ class Window(Gtk.ApplicationWindow):
         dialog.connect('response',response);dialog.present()
 
     def start_scan(self,*_):
+        if self.update_jobs.running:return
         if self.worker and self.worker.is_alive():return
         target=self.target.get_text().strip()
         categories=[k for k,b in self.checkboxes.items() if b.get_sensitive() and b.get_active()]
@@ -300,6 +319,7 @@ class Window(Gtk.ApplicationWindow):
         self.worker.start()
 
     def set_running(self,running):
+        self.scan_running=running
         for w in (self.target,self.mode):w.set_sensitive(not running)
         self.folder.set_sensitive(not running and self.mode.get_selected()==0)
         for key in ('start','settings'):self.menu_actions[key].set_enabled(not running)
@@ -308,8 +328,17 @@ class Window(Gtk.ApplicationWindow):
         self.menu_actions['export'].set_enabled(not running and self.report is not None)
         self.clear_target_button.set_sensitive(not running and bool(self.target.get_text()))
         self.status.set_label(self.tr('running' if running else self.report.status if self.report else 'ready'))
+        self.refresh_update_controls()
         if running:self.show_progress()
         else:self.close_progress()
+
+    def append_progress_text(self,box,label):
+        label.set_wrap_mode(Pango.WrapMode.WORD_CHAR);label.set_width_chars(50);label.set_yalign(0)
+        context=label.get_pango_context();metrics=context.get_metrics(context.get_font_description(),context.get_language())
+        height=4*((metrics.get_ascent()+metrics.get_descent()+Pango.SCALE-1)//Pango.SCALE)
+        scroll=Gtk.ScrolledWindow(hscrollbar_policy=Gtk.PolicyType.NEVER,min_content_height=height,max_content_height=height)
+        scroll.set_child(label);box.append(scroll)
+        return scroll
 
     def show_progress(self):
         window=Gtk.Window(title=self.tr('running'),transient_for=self,modal=True,default_width=480,resizable=False)
@@ -317,7 +346,7 @@ class Window(Gtk.ApplicationWindow):
         box=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=12,margin_top=20,margin_bottom=20,margin_start=20,margin_end=20)
         window.set_child(box)
         self.progress_label=Gtk.Label(label=self.tr('running'),wrap=True,xalign=0,max_width_chars=65)
-        box.append(self.progress_label)
+        self.append_progress_text(box,self.progress_label)
         self.progress=Gtk.ProgressBar();box.append(self.progress)
         self.progress_cancel=self.button('cancel',self.cancel_scan);box.append(self.progress_cancel)
         # Schließen fordert einen sicheren Abbruch an und wartet auf das Ende.
@@ -449,11 +478,8 @@ class Window(Gtk.ApplicationWindow):
         Gio.AppInfo.launch_default_for_uri(self.tr.help_path().as_uri(),None)
 
     def show_tools(self,*_):
-        lines=[]
-        for tool in tools_available():
-            lines.append(tool['name']+' — '+self.tr('available' if tool['available'] else 'unavailable')+'\n'+tool.get('version','')+'\nAPT: '+tool['package'])
-        lines.append(self.tr('tidy_note'))
-        self.notify('\n\n'.join(lines),self.tr('tools'))
+        from .tool_info import show_tool_info
+        return show_tool_info(self)
 
     def show_log(self,*_):
         from .logfile import read_log,save_log,LogChangedError
@@ -545,15 +571,12 @@ class Window(Gtk.ApplicationWindow):
         unit.set_selected(units.index(self.opts['update_interval_unit']) if self.opts['update_interval_unit'] in units else 1)
         interval.append(unit);box.append(interval)
         label('update_interval_help')
-        label('update_url')
-        controls['update_url']=Gtk.Entry(text=self.opts['update_url']);box.append(controls['update_url'])
-        box.append(self.button('update_now',lambda *_:self.check_update(controls['update_url'].get_text())))
+        update_status=Gtk.Label(xalign=0,wrap=True);box.append(update_status)
+        download=self.button('update_download',self.download_available_update);download.set_sensitive(False);box.append(download)
         group('language_extensions')
         label('language');box.append(lang)
-        label('source_url')
-        controls['source_url']=Gtk.Entry(text=self.opts['source_url']);box.append(controls['source_url'])
         box.append(self.button('import_language',lambda *_:self.import_language(on_installed=refresh_languages)))
-        box.append(self.button('download_language',lambda *_:self.download_language(controls['source_url'].get_text(),on_installed=refresh_languages,parent=window)))
+        box.append(self.button('download_language',lambda *_:self.download_language(PROJECT['source_url'],on_installed=refresh_languages,parent=window)))
         def save(*_):
             new=self.opts.copy()
             for key,control in controls.items():
@@ -578,6 +601,10 @@ class Window(Gtk.ApplicationWindow):
         footer.append(self.button('cancel',lambda *_:window.destroy()))
         footer.append(self.button('save_settings',save))
         layout.append(footer)
+        window.template_controls=dict(update_status=update_status,download=download,fields=controls)
+        self.settings_windows.append(window)
+        window.connect("unrealize",lambda *_:self.settings_windows.remove(window) if window in self.settings_windows else None)
+        self.refresh_update_controls()
         window.present()
         return window
 
@@ -587,25 +614,33 @@ class Window(Gtk.ApplicationWindow):
         image=Path(__file__).resolve().parent.parent/'assets'/'checkweb.png'
         if image.is_file():
             from gi.repository import Gdk
-            dialog.set_logo(Gdk.Texture.new_from_filename(str(image)))
+            from gi.repository import GdkPixbuf
+            logo=GdkPixbuf.Pixbuf.new_from_file_at_scale(str(image),128,128,True)
+            dialog.set_logo(Gdk.Texture.new_for_pixbuf(logo))
         dialog.present()
         return dialog
 
     def background_error(self,exc):
         return self.tr('wrong_program') if isinstance(exc,ProgramIdentityError) else str(exc)
 
-    def background(self,fn,done,quiet=False):
+    def background(self,fn,done,quiet=False,on_error=None):
         def run():
             try:
                 result=fn()
                 def deliver():
+                    if self._closed:return False
                     try: done(result)
                     except Exception as exc: self.notify(self.background_error(exc),self.tr('error_title'))
                     return False
                 GLib.idle_add(deliver)
             except Exception as exc:
                 text=self.background_error(exc)
-                if not quiet:GLib.idle_add(lambda:(self.notify(text,self.tr('error_title')),False)[1])
+                def fail(error=exc):
+                    if self._closed:return False
+                    if on_error:on_error(error)
+                    if not quiet:self.notify(text,self.tr('error_title'))
+                    return False
+                GLib.idle_add(fail)
         threading.Thread(target=run,daemon=True).start()
 
     def import_language(self,*_,on_installed=None):
@@ -657,29 +692,77 @@ class Window(Gtk.ApplicationWindow):
         self.background(load,loaded)
         return dialog
 
-    def check_update(self,url,automatic=False):
-        if not url:
-            if not automatic:self.notify(self.tr('no_source'))
-            return
-        def done(latest):
-            self.opts['last_update_check']=datetime.now(timezone.utc).isoformat()
-            atomic_json(config_dir()/'settings.json',self.opts)
-            if not automatic or latest!=VERSION:self.notify(self.tr('version_result',current=VERSION,latest=latest))
-        self.background(lambda:download_version(url),done,quiet=automatic)
+    def refresh_update_controls(self):
+        for window in self.settings_windows[:]:
+            controls=window.template_controls
+            controls['update_status'].set_label(self.tr(self.update_status_key))
+            newer=self.update_info and tuple(map(int,self.update_info['version'].split('.')))>tuple(map(int,VERSION.split('.')))
+            controls['download'].set_sensitive(bool(newer and self.update_info.get('deb') and not self.update_jobs.running and not self.update_check_running and not self.scan_running))
 
-    def auto_update(self):
-        if not self.opts['update_check'] or not self.opts['update_url']:return False
-        try:last=datetime.fromisoformat(self.opts['last_update_check'])
-        except ValueError:last=datetime(1970,1,1,tzinfo=timezone.utc)
-        if last.tzinfo is None:last=last.replace(tzinfo=timezone.utc)
-        days={'days':1,'weeks':7,'months':30}.get(self.opts['update_interval_unit'],7)*self.opts['update_interval_value']
-        if datetime.now(timezone.utc)-last>=timedelta(days=days):self.check_update(self.opts['update_url'],True)
+    def initial_update(self):
+        self.check_update(automatic=True)
         return False
 
+    def check_update(self,url=None,automatic=False):
+        if self._closed or self.update_check_running or self.update_jobs.running:return
+        source=PROJECT['update_url']
+        self.update_check_running=True;self.update_status_key='software_checking';self.refresh_update_controls()
+        def done(info):
+            self.update_check_running=False;self.update_info=info
+            self.opts['last_update_check']=datetime.now(timezone.utc).isoformat();atomic_json(config_dir()/'settings.json',self.opts)
+            newer=tuple(map(int,info['version'].split('.')))>tuple(map(int,VERSION.split('.')))
+            self.update_status_key='software_update' if newer else 'software_current'
+            self.refresh_update_controls()
+        def failed(exc):
+            self.update_check_running=False;self.update_info=None;self.update_status_key='software_check_failed'
+            self.refresh_update_controls()
+        self.background(lambda:release_info(source),done,quiet=True,on_error=failed)
+
+    def auto_update(self):
+        if self._closed:return False
+        if self.opts['update_check'] and not (self.worker and self.worker.is_alive()):
+            try:last=datetime.fromisoformat(self.opts['last_update_check'])
+            except ValueError:last=datetime(1970,1,1,tzinfo=timezone.utc)
+            if last.tzinfo is None:last=last.replace(tzinfo=timezone.utc)
+            days={'days':1,'weeks':7,'months':30}.get(self.opts['update_interval_unit'],7)*self.opts['update_interval_value']
+            if datetime.now(timezone.utc)-last>=timedelta(days=days):self.check_update(automatic=True)
+        return True
+
+    def download_available_update(self,*_):
+        if not self.update_info or self.update_jobs.running or (self.worker and self.worker.is_alive()):return
+        info=self.update_info
+        window=Gtk.Window(title=self.tr('update_download'),transient_for=self,modal=True,resizable=False,default_width=480)
+        box=Gtk.Box(orientation=Gtk.Orientation.VERTICAL,spacing=12,margin_top=20,margin_bottom=20,margin_start=20,margin_end=20);window.set_child(box)
+        self.update_label=Gtk.Label(label=self.tr('update_download'),xalign=0,wrap=True)
+        self.append_progress_text(box,self.update_label)
+        progress=Gtk.ProgressBar(show_text=True);box.append(progress)
+        cancel=self.button('cancel',lambda *_:self.update_jobs.cancel());box.append(cancel)
+        window.connect('close-request',lambda *_:(self.update_jobs.cancel(),True)[1])
+        window.connect('map',lambda *_:center_after_map(window,self))
+        self.update_window=window
+        def report(current,total):progress.set_fraction(current/total);progress.set_text(f'{round(100*current/total)} %')
+        def finish(path,error):
+            window.destroy();self.update_window=None
+            self.menu_actions['start'].set_enabled(True)
+            self.refresh_update_controls()
+            if self.closing:self.close();return
+            if isinstance(error,Cancelled):return
+            if error:self.notify(self.tr('update_download_error'))
+            else:self.notify(self.tr('update_downloaded',path=str(path)))
+        self.update_jobs.start(lambda context:download_update(info,context),report,finish,cancellable=True)
+        self.menu_actions['start'].set_enabled(False)
+        self.refresh_update_controls();window.present()
+
     def close_request(self,*_):
+        if self.update_jobs.running:
+            def stop():self.closing=True;self.update_jobs.cancel()
+            self.question(self.tr("confirm_close"),stop);return True
         if self.worker and self.worker.is_alive():
             def stop():self.closing=True;self.cancel_scan()
             self.question(self.tr('confirm_close'),stop);return True
+        self._closed=True
+        GLib.source_remove(self.update_timer)
+        for window in self.settings_windows:window.destroy()
         for dialog in self.dialogs[:]:dialog.destroy()
         self.dialogs.clear()
         return False

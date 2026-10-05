@@ -54,8 +54,8 @@ with tempfile.TemporaryDirectory(prefix='checkweb-appearance-') as temporary:
                 contents=list(widgets(body))
                 heading=next(w for w in contents if isinstance(w,Gtk.Label) and w.get_label()==window.tr('language_extensions'))
                 language=next(w for w in contents if w.get_name()=='installed_languages')
-                source=next(w for w in contents if isinstance(w,Gtk.Label) and w.get_label()==window.tr('source_url'))
-                assert contents.index(heading)<contents.index(language)<contents.index(source)
+                assert not any(isinstance(w,Gtk.Label) and w.get_label() in (window.tr('source_url'),window.tr('update_url')) for w in contents)
+                assert contents.index(heading)<contents.index(language)
                 dialog.destroy()
             window.report=Report('local',temporary,[],status='complete',findings=[
                 Finding('error','links','a.html','file_missing'),
