@@ -1,3 +1,16 @@
+## 1.4.0 – 06.10.2026
+
+- Zusätzliche Online-Abfragen für Adressvarianten, Fehlerseiten, Sitemap/robots.txt/Canonical.
+- Getrennte DNS-, Verbindungs- und TLS-Fehler; nachvollziehbare Prüfzustände und Weiterleitungsketten.
+- Bestehende Grenzen gelten für zusätzliche Anfragen; Hinweise ohne falsche Fehler- oder Vollständigkeitsgarantie.
+
+# 1.3.1 – 06.10.2026
+
+- Paketbereinigung merkt benutzte XDG-Pfade, schützt eigene Starter, erkennt markierte env-Starter, meldet Benutzer-/Pfadfehler ohne dpkg zu blockieren und wiederholt Bereinigung bei purge.
+- Portabler Checkweb-DEB-Identitätstest statt Abhängigkeit von einem fremden Download; GTK-Mindestversion und Build-Anleitung ergänzt.
+- F5 startet eine Prüfung über dieselbe Menüaktion; bei laufender Arbeit deaktiviert.
+- Manueller Release-Tag ohne veralteten Standardwert; getrennte PHP-/JavaScript-Tests mit Werkzeugvoraussetzungen; Exportzielschutz für Programmressourcen, aktive Konfiguration und verlinkte Ziele.
+
 # 1.3.0
 
 - Unbenutztes tidy aus Werkzeugerkennung und Info entfernt; html5lib bleibt sichtbar.

@@ -1,6 +1,14 @@
+## Aktueller Stand 1.4.0 – 06.10.2026
+
+Manueller Release-Tag ohne veralteten Standardwert; getrennte PHP-/JavaScript-Tests mit Werkzeugvoraussetzungen; Exportzielschutz für Programmressourcen, aktive Konfiguration und verlinkte Ziele.
+
+Die auswählbare Gruppe „Zusätzliche Online-Abfragen“ vergleicht HTTP/HTTPS und www/ohne www, testet eine zufällige nicht vorhandene Adresse und liest /sitemap.xml. Alle Anfragen beachten das gemeinsame Budget, robots.txt, Abbruch, Zeit- und Größenlimits. Weiterleitungen außerhalb des Ursprungs werden als Grenze gemeldet. Soft-404, abweichende Varianten und Canonical-/Sitemap-Widersprüche bleiben Hinweise. robots.txt wird mit höchstens 20 Sitemap-Adressen verglichen; Sitemap-Indizes werden nicht weiter verfolgt. DNS-, Verbindungs-, TLS- und HTTP-Fehler sind getrennt. Berichte zeigen ausgeführte und nicht geprüfte Tests mit Gründen sowie mögliche Loginseiten. Lokale Prüfungen führen diese zusätzlichen Online-Abfragen nicht aus.
+
+Noch nicht als DEB erstellt oder veröffentlicht. Der bisherige Release bleibt unverändert. Prüfdetails: `TESTBERICHT.md`.
+
 # checkweb
 
-Aktuelle Version: **1.3.0**. Die zentrale Versionsquelle ist `VERSION`.
+Aktuelle Version: **1.4.0**. Die zentrale Versionsquelle ist `VERSION`.
 
 GTK-4-Anwendung zur lokalen und Online-Prüfung von Webseiten. Entwicklung für Linux Mint/Cinnamon. GPL-3.0-only, Copyright 2026 Josef. Vollständiger Lizenztext: LICENSE.
 
@@ -22,7 +30,7 @@ Standardgrenzen: 100 Seiten, Linktiefe 3, 300 Dateien/HTTP-Anfragen und 10 Sekun
 
 DE/EN und lokale HTML-Hilfe liegen unter lang/ und help/. Eigene JSON-Pakete importieren: `{"program_id":"checkweb","code":"fr","strings":{"start":"Démarrer"},"help_html":"<h1>Aide</h1><p>…</p>"}`. Fehlende Schlüssel fallen auf Englisch zurück; Platzhalter müssen übereinstimmen. Eigenes HTML wird auf passive Inhalte begrenzt. Vorhandene Sprachpakete werden nicht überschrieben.
 
-Interne Downloadquelle: direkte HTTPS-GitHub-Basisadresse, aus der `<code>.json` geladen wird. Voreingestellt ist `https://raw.githubusercontent.com/Lehner-007/checkweb/main/github/sprachpakete`. Die interne Versionsquelle liefert `{"program_id":"checkweb","version":"1.3.0"}`. Es werden keine Updates installiert. Monatsintervalle entsprechen 30 Tagen.
+Interne Downloadquelle: direkte HTTPS-GitHub-Basisadresse, aus der `<code>.json` geladen wird. Voreingestellt ist `https://raw.githubusercontent.com/Lehner-007/checkweb/main/github/sprachpakete`. Die interne Versionsquelle liefert `{"program_id":"checkweb","version":"1.4.0"}`. Es werden keine Updates installiert. Monatsintervalle entsprechen 30 Tagen.
 
 ## Prüfen
 
@@ -158,7 +166,7 @@ Bei einem Verbindungs- oder Pushfehler können ein lokaler Commit und Tag bereit
 
 `./erstelledeb.sh` erstellt das DEB aus der zentralen `VERSION`, ohne die Programmversion zu ändern. Das Paket installiert einen Menüeintrag und auf vorhandenen, aktivierten Benutzer-Desktops eine Checkweb-Verknüpfung. `python3-html5lib` ist eine Pflichtabhängigkeit; die Installation mit APT löst diese auf. Ein bloßer Aufruf von `dpkg -i` lädt fehlende Abhängigkeiten nicht herunter.
 
-Installation: `sudo apt install ./checkweb_1.3.0_all.deb`. Entfernung: `sudo apt remove checkweb`. Bereits beim Entfernen werden Checkwebs persönliche Einstellungen, Profile, Sprachdateien, Hilfen, Logs, Caches und Zustandsdaten in seinen Benutzerordnern gelöscht. Erkannte Checkweb-Verknüpfungen werden ebenfalls entfernt, einschließlich solcher im Benutzer-Papierkorb. Der Entwicklungsordner und unabhängig gespeicherte Berichte bleiben erhalten. Bei einem Upgrade bleiben Benutzerdateien erhalten.
+Installation: `sudo apt install "./dist/checkweb_$(cat VERSION)_all.deb"`. Entfernung: `sudo apt remove checkweb`. Bereits beim Entfernen werden Checkwebs persönliche Einstellungen, Profile, Sprachdateien, Hilfen, Logs, Caches und Zustandsdaten in seinen Benutzerordnern gelöscht. Erkannte Checkweb-Verknüpfungen werden ebenfalls entfernt, einschließlich solcher im Benutzer-Papierkorb. Der Entwicklungsordner und unabhängig gespeicherte Berichte bleiben erhalten. Bei einem Upgrade bleiben Benutzerdateien erhalten.
 
 Die Bereinigung läuft mit den Rechten des jeweiligen Benutzers. Nicht erreichbare Benutzerordner und abweichende, bei der Paketverwaltung nicht bekannte XDG-Pfade müssen gegebenenfalls gesondert geprüft werden. Die Desktop-Vertrauensmarkierung wird gesetzt, soweit die Sitzung sie unterstützt; andernfalls kann Cinnamon beim ersten Start eine Bestätigung verlangen.
 
@@ -192,4 +200,22 @@ Die veröffentlichte Versionsdatei benötigt für Downloads zusätzlich `deb` mi
 
 Hilfe → Info zeigt erkannte Werkzeuge, Versionen und Paketnamen. Fortschrittsfenster halten vier Textzeilen bereit; längere Meldungen sind scrollbar. Das Bild im Über-Dialog ist auf 128 × 128 Pixel begrenzt.
 
-Nach dem DEB-Bau erzeugt `python3 packaging/prepare_update.py dist/checkweb_1.3.0_all.deb github/version.json` die zugehörigen geprüften Download-Metadaten. Die Release-Automation übernimmt das aus ihrem tatsächlichen DEB und aktualisiert die öffentliche Versionsdatei erst nach erfolgreicher Veröffentlichung.
+Nach dem DEB-Bau erzeugt `python3 packaging/prepare_update.py dist/checkweb_$(cat VERSION)_all.deb github/version.json` die zugehörigen geprüften Download-Metadaten. Die Release-Automation übernimmt das aus ihrem tatsächlichen DEB und aktualisiert die öffentliche Versionsdatei erst nach erfolgreicher Veröffentlichung.
+
+Berichtexporte schützen die aktive Konfiguration sowie Programmquellen, Sprachen, Hilfen und Ressourcen, auch über symbolische Links. Normale Berichte können weiterhin ersetzt werden; die GUI fragt vorher nach. Der CLI-Ausgabeparameter ersetzt normale Berichte bewusst direkt.
+
+F5 startet eine Prüfung wie der Menüeintrag „Prüfung starten“. Während einer laufenden Prüfung oder eines Update-Downloads ist die Startaktion deaktiviert.
+
+## Paketierung und Benutzerbereinigung – Arbeitsstand 1.3.1
+
+Entwicklungs- und Prüfumgebung: Linux Mint 22.3/Cinnamon. Mindestanforderung GTK 4.8 (ContentFit); GTK 3 genügt nicht. Andere Mint-Versionen wurden nicht vollständig installiert getestet. Siehe https://docs.gtk.org/gtk4/enum.ContentFit.html.
+
+Build-Werkzeuge: Python 3, Pillow (python3-pil), dpkg-deb (Paket dpkg) und ein vorhandener, nicht verlinkter Ausgabeordner dist. Build-Skripte und Tests gehören zum GitHub-Entwicklerquellstand. Das schlanke Basispaket aus erstellezip.sh enthält bewusst nur Laufzeitdateien; Start dort mit `python3 checkweb.py`. Es enthält keine start.sh, Build-Umgebung oder Tests und ist kein Entwicklerarchiv. Für Veröffentlichungen werden kein privater Gesamtordner und keine Venv kopiert.
+
+Installations- und Metadatenbefehle nutzen die zentrale VERSION. SHA256SUMS und Versions-JSON erst aus dem tatsächlich gebauten Release-DEB erzeugen. Noch kein neuer Release veröffentlicht. Maintainer bleibt Josef; eine von Josef festgelegte E-Mail-Adresse fehlt noch und wird nicht erfunden.
+
+Die installierte Anwendung merkt ihre tatsächlich benutzten XDG-Verzeichnisse in `~/.local/state/checkweb-locations.json` vor. Beim Entfernen werden zusätzlich zu Standardpfaden diese bekannten Checkweb-Unterordner als jeweiliger Benutzer bearbeitet. Vorher mit der neuen Version nicht benutzte Custom-XDG-Pfade können unbekannt bleiben. Benutzerumgebungen werden nicht durch Shell-Profile als root geladen.
+
+Ein separat nutzbarer Benutzerweg im DEB lautet `checkweb-cleanup --user remove` (ohne sudo, vor der Deinstallation). Dieser entfernt anwendungseigene Daten auch aus der aktuellen XDG-Umgebung und meldet Fehler. Er ist destruktiv: eigene Sprachen und Einstellungen vorher sichern. Die Paket-Hooks melden Probleme pro Benutzer/Pfad; optionale Desktop-Pflege blockiert die Paketverwaltung nicht. Ein zusätzlicher postrm-purge-Hook kann vorgemerkte Reste erneut bearbeiten. Ungelesene Register und fehlgeschlagene Ziele bleiben für Wiederholung erhalten.
+
+Vom Paket erzeugte Starter werden über X-Checkweb-Managed=true und einen passenden Checkweb-Befehl erkannt, auch mit env und Argumenten. Das exakt bekannte alte Paket-Template sowie direkte Links auf den Paketstarter werden eng migriert. Selbst angelegte unmarkierte Starter mit eigenen Namen/Argumenten/Icon bleiben erhalten. Keine pauschale restlos-Garantie: Root/System/deaktivierte Konten, unerreichbare Homes und verlinkte Eltern werden ausdrücklich ausgelassen; unbekannte Orte, private Starter, Downloads, Berichte und Entwicklungsordner bleiben erhalten. Entfernen ist deshalb nicht dasselbe wie Löschen aller denkbaren Dateien.

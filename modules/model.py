@@ -14,7 +14,7 @@ PROGRAM_ID = 'checkweb'
 ROOT = Path(__file__).resolve().parent.parent
 VERSION = (ROOT / 'VERSION').read_text(encoding='utf-8').strip()
 CATEGORIES = ('html', 'css', 'javascript', 'php', 'structured', 'links', 'images',
-              'metadata', 'headings', 'encoding', 'accessibility', 'security', 'performance')
+              'metadata', 'headings', 'encoding', 'accessibility', 'security', 'performance', 'website')
 DEFAULTS = dict(config_version=2, language='de', max_pages=100, max_depth=3,
                 max_resources=300, timeout=10, max_bytes=5_000_000, delay=0.1,
                 external_links=True, robots=True, categories=list(CATEGORIES),
@@ -129,5 +129,7 @@ class Report:
     resource_details: list = field(default_factory=list)
     duration_seconds: float = 0.0
     incomplete_reasons: list = field(default_factory=list)
+
+    network_tests: list = field(default_factory=list)
 
     def data(self): return asdict(self)

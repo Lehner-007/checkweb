@@ -57,7 +57,7 @@ class DesktopLifecycleTests(unittest.TestCase):
         self.assertFalse((self.home / '.config/checkweb').is_symlink())
 
     def test_old_shortcut_trash_and_renamed_shortcut_removed(self):
-        (self.desktop / 'umbenannt.desktop').write_text(lifecycle.DESKTOP.replace('Name=Checkweb', 'Name=Mein Checkweb'))
+        (self.desktop / 'umbenannt.desktop').write_text(lifecycle.MANAGED.replace('Name=Checkweb', 'Name=Mein Checkweb'))
         trash = self.home / '.local/share/Trash'
         (trash / 'files').mkdir(parents=True);(trash / 'info').mkdir()
         (trash / 'files/checkweb.desktop').write_text(lifecycle.DESKTOP)
@@ -108,3 +108,72 @@ class DesktopLifecycleTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class CleanupRegressionTests(unittest.TestCase):
+    setUp = DesktopLifecycleTests.setUp
+    def test_personal_launcher_preserved_and_managed_env_removed(self):
+        personal = self.desktop / 'personal.desktop'
+        personal.write_text('[Desktop Entry]\nType=Application\nName=Personal\nExec=checkweb --tools\n')
+        managed = self.desktop / 'managed-env.desktop'
+        managed.write_text(lifecycle.MANAGED.replace('Exec=checkweb', 'Exec=env CHECKWEB_DEV=0 /usr/bin/checkweb --tools'))
+        lifecycle.user_action('remove', self.home)
+        self.assertTrue(personal.exists())
+        self.assertFalse(managed.exists())
+        own_named = self.desktop / 'checkweb.desktop'
+        own_named.write_text(personal.read_text())
+        lifecycle.user_action('configure', self.home)
+        self.assertEqual(own_named.read_text(), personal.read_text())
+
+    def test_recorded_custom_xdg_on_real_main_dispatch_without_root_environment(self):
+        from modules.runtime_paths import remember_locations
+        from types import SimpleNamespace
+        custom = self.home / 'individual-config'
+        (custom / 'checkweb').mkdir(parents=True)
+        (custom / 'checkweb/settings.json').write_text('{}')
+        with patch.dict(os.environ, {'XDG_CONFIG_HOME': str(custom)}):remember_locations(self.home)
+        user = SimpleNamespace(pw_name='test-user', pw_uid=1000, pw_shell='/bin/bash', pw_dir=str(self.home))
+        def run(command, env, timeout):
+            self.assertNotIn('XDG_CONFIG_HOME', env)
+            self.assertEqual(command[-2:], ['--user', 'remove'])
+            with patch.dict(os.environ, env, clear=True):lifecycle.user_action('remove', self.home)
+            return SimpleNamespace(returncode=0)
+        with patch.object(lifecycle.os,'geteuid',return_value=0),patch.object(lifecycle.pwd,'getpwall',return_value=[user]),patch.object(lifecycle.subprocess,'run',side_effect=run),patch.object(lifecycle.sys,'argv',['prerm','remove']),patch.dict(os.environ,{'XDG_CONFIG_HOME':'/root/foreign'}):
+            lifecycle.main()
+        self.assertFalse((custom / 'checkweb').exists())
+        self.assertFalse((self.home / '.local/state/checkweb-locations.json').exists())
+
+    def test_optional_runuser_failure_does_not_fail_package_hook(self):
+        from types import SimpleNamespace
+        import io
+        user = SimpleNamespace(pw_name='test-user',pw_uid=1000,pw_shell='/bin/bash',pw_dir=str(self.home))
+        for failure in (SimpleNamespace(returncode=1),PermissionError('denied')):
+            result = {'side_effect':failure} if isinstance(failure,Exception) else {'return_value':failure}
+            stderr=io.StringIO()
+            with patch.object(lifecycle.os,'geteuid',return_value=0),patch.object(lifecycle.pwd,'getpwall',return_value=[user]),patch.object(lifecycle.subprocess,'run',**result),patch.object(lifecycle.sys,'argv',['postinst','configure']),patch.object(lifecycle.sys,'stderr',stderr):
+                lifecycle.main()
+            self.assertIn('nicht vollständig',stderr.getvalue())
+
+    def test_failed_path_does_not_stop_other_paths_and_keeps_registry(self):
+        from modules.runtime_paths import remember_locations
+        remember_locations(self.home)
+        for base in ('.config','.cache'):(self.home/base/'checkweb').mkdir(parents=True,exist_ok=True)
+        original = lifecycle.remove_tree
+        def remove(path):
+            if path == self.home/'.config/checkweb':raise PermissionError('test')
+            original(path)
+        with patch.object(lifecycle,'remove_tree',side_effect=remove):
+            self.assertFalse(lifecycle.user_action('remove',self.home))
+        self.assertTrue((self.home/'.config/checkweb').exists())
+        self.assertFalse((self.home/'.cache/checkweb').exists())
+        self.assertTrue((self.home/'.local/state/checkweb-locations.json').exists())
+        lifecycle.user_action('purge',self.home)
+        self.assertFalse((self.home/'.local/state/checkweb-locations.json').exists())
+
+    def test_linked_registry_parent_is_not_modified(self):
+        external = Path(self.tmp.name) / 'external-state'; external.mkdir()
+        registry = external / 'checkweb-locations.json'
+        registry.write_text('{"program_id":"checkweb","locations":[]}')
+        (self.home/'.local').mkdir(exist_ok=True)
+        (self.home/'.local/state').symlink_to(external,target_is_directory=True)
+        lifecycle.user_action('purge',self.home)
+        self.assertTrue(registry.exists())

@@ -1,4 +1,5 @@
 import json
+import shutil
 from pathlib import Path
 import tempfile
 import threading
@@ -46,15 +47,22 @@ class LocalTests(unittest.TestCase):
   (self.root/'index.html').write_text('<html><head></head><body><h1 id="a">A</h1><h3 id="a">B</h3><img src="gone.png"><input><a href="#absent">link</a><a href="dynamic">route</a></body></html>')
   report=self.scan();codes={f.code for f in report.findings}
   self.assertTrue({'duplicate_id','alt_missing','label_missing','heading_jump','file_missing','fragment_missing','route_unknown'}<=codes)
- def test_syntax_checks_do_not_execute(self):
+ def test_php_syntax_checks_do_not_execute(self):
+  if not shutil.which('php'):self.skipTest('PHP syntax checker is not installed')
   flag=self.root/'executed'
   (self.root/'safe.php').write_text('<?php file_put_contents('+repr(str(flag))+',"executed");')
-  (self.root/'safe.js').write_text('require("fs").writeFileSync('+json.dumps(str(flag))+',"executed");')
   (self.root/'bad.php').write_text('<?php function broken( {')
+  report=self.scan()
+  self.assertFalse(flag.exists())
+  self.assertIn('php',{f.category for f in report.findings if f.code=='syntax'})
+ def test_javascript_syntax_checks_do_not_execute(self):
+  if not shutil.which('node'):self.skipTest('Node.js syntax checker is not installed')
+  flag=self.root/'executed'
+  (self.root/'safe.js').write_text('require("fs").writeFileSync('+json.dumps(str(flag))+',"executed");')
   (self.root/'bad.js').write_text('const x = ;')
   report=self.scan()
   self.assertFalse(flag.exists())
-  self.assertEqual({f.category for f in report.findings if f.code=='syntax'}, {'php','javascript'})
+  self.assertIn('javascript',{f.category for f in report.findings if f.code=='syntax'})
  def test_css_json_xml(self):
   (self.root/'bad.css').write_text('p { color red; }')
   (self.root/'bad.json').write_text('{"a":}')
@@ -126,7 +134,7 @@ class OnlineTests(unittest.TestCase):
   self.assertEqual(report.status,'incomplete')
   self.assertTrue({'http_missing','robots_denied','fragment_missing'}<=codes)
   self.assertNotIn('/private',Handler.hits)
- def test_redirect_loop(self):self.assertTrue(any(f.code=='network_error' for f in self.scan('/loop').findings))
+ def test_redirect_loop(self):self.assertTrue(any(f.code=='redirect_loop' for f in self.scan('/loop').findings))
  def test_cross_origin_redirect_is_not_followed(self):self.assertTrue(any(f.code=='redirect_boundary' for f in self.scan('/boundary').findings))
  def test_rate_limit(self):self.assertTrue(any(f.code=='rate_limit' for f in self.scan('/rate').findings))
  def test_budget(self):

@@ -66,8 +66,14 @@ class UpdateTests(unittest.TestCase):
             self.assertEqual(list(folder.iterdir()),[])
 
     def test_existing_real_package_identity(self):
-        path=Path('/home/josef/Downloads/showipmac_0.5.1_all.deb')
-        if not path.exists():self.skipTest('Real package unavailable')
-        info=dict(version='0.5.1',deb=dict(sha256=hashlib.sha256(path.read_bytes()).hexdigest()))
-        with patch.dict(model.PROJECT['deb'],package='showipmac'):check_package(path,info,self.context())
-        with self.assertRaises(ValueError):check_package(path,info,self.context())
+        import subprocess
+        with tempfile.TemporaryDirectory(dir=ROOT/'work') as temporary:
+            folder=Path(temporary);control=folder/'stage/DEBIAN';control.mkdir(parents=True)
+            (control/'control').write_text('Package: checkweb\nVersion: 9.0.0\nArchitecture: all\nMaintainer: Test\nDescription: isolated update identity fixture\n')
+            path=folder/'checkweb_9.0.0_all.deb'
+            subprocess.run(['dpkg-deb','--build',str(control.parent),str(path)],check=True,stdout=subprocess.DEVNULL)
+            info=dict(version='9.0.0',deb=dict(sha256=hashlib.sha256(path.read_bytes()).hexdigest()))
+            check_package(path,info,self.context())
+            with self.assertRaises(ValueError):check_package(path,dict(info,version='9.0.1'),self.context())
+            with patch.dict(model.PROJECT['deb'],package='foreign'),self.assertRaises(ValueError):
+                check_package(path,info,self.context())

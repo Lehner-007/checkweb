@@ -10,10 +10,11 @@ from .lifecycle import log_text
 import os
 import tempfile
 from .i18n import Strings
+from .model import ROOT, config_dir
 
 SECTIONS=('errors','external_errors','manual','indeterminate','warnings','hints','unchecked','redirects')
 MANUAL_CODES={'http_auth','http_forbidden'}
-INDETERMINATE_CODES={'http_server','http_timeout','http_status','network_error','rate_limit','robots_denied','robots_unavailable','route_unknown','tool_failed'}
+INDETERMINATE_CODES={'http_server','http_timeout','http_status','network_error','rate_limit','robots_denied','robots_unavailable','route_unknown','tool_failed','dns_error','connection_error','tls_error','redirect_loop','redirect_limit'}
 UNCHECKED_CODES={'limit','too_large','tool_missing'}
 REDIRECT_CODES={'redirect','redirect_boundary','redirect_pending'}
 
@@ -147,6 +148,14 @@ def html_report(report,language):
                 chunks.extend('<li>'+e(target)+'</li>' for target in sorted(targets))
                 chunks.append('</ul></details>')
         chunks.append('</section>')
+    if getattr(report,'network_tests',[]):
+        chunks.append('<h2>'+e(tr('network_tests'))+'</h2><p>'+e(tr('diagnostic_note'))+'</p><div class="table"><table>')
+        for item in report.network_tests:
+            values=[tr('test_'+item['purpose']),item['target'],tr(item['status']),item.get('http_status') or '—',item.get('final') or '—']
+            chunks.append('<tr>'+''.join('<td>'+e(value)+'</td>' for value in values)+'</tr>')
+            for step in item.get('chain',[]):chunks.append('<tr><td colspan="5">'+e(str(step['http_status'])+' '+step['target']+' → '+step['destination'])+'</td></tr>')
+            if item.get('reasons'):chunks.append('<tr><td colspan="5">'+e('; '.join(tr('msg_'+reason) for reason in item['reasons']))+'</td></tr>')
+        chunks.append('</table></div>')
     chunks.append('<h2>'+e(tr('technical_details'))+'</h2><p>'+e(format_timestamp(report.started)+' → '+format_timestamp(report.finished))+'</p>')
     resources=getattr(report,'resource_details',[])
     chunks.append('<h3>'+e(tr('page_resources'))+'</h3><p>'+e(tr('resource_method'))+'</p>')
@@ -159,6 +168,10 @@ def html_report(report,language):
             status=tr('resource_checked' if item['checked'] else 'not_checked')
             chunks.append('<tr>'+''.join('<td>'+e(value)+'</td>' for value in (item['target'],item.get('http_status') or '—',tr('scope_'+item['scope']),sources,status))+'</tr>')
         chunks.append('</table></div></details>')
+    chunks.append('<h3>'+e(tr('coverage_tests'))+'</h3><div class="table"><table>')
+    for check in report.checks:
+        chunks.append('<tr>'+''.join('<td>'+e(v)+'</td>' for v in (check['target'],tr('cat_'+check['category']),tr(check['status']),check['tool']))+'</tr>')
+    chunks.append('</table></div>')
     chunks.append('<h3>'+e(tr('tools'))+'</h3><div class="table"><table><tr>'+''.join('<th>'+e(tr(key))+'</th>' for key in ('tool_name','tool_version','report_status'))+'</tr>')
     for tool in report.tools:
         chunks.append('<tr>'+''.join('<td>'+e(value)+'</td>' for value in (tool['name'],tool.get('version') or '—',tr('available' if tool['available'] else 'unavailable')))+'</tr>')
@@ -169,8 +182,25 @@ def html_report(report,language):
     return ''.join(chunks).replace('</head>',watermark_style()+'</head>',1)
 
 
+class ProtectedExportTarget(ValueError):
+    pass
+
+
+def check_export_target(path):
+    target = Path(path).resolve()
+    protected_roots = [config_dir().resolve()] + [
+        (ROOT / name).resolve() for name in
+        ('lang', 'help', 'assets', 'modules', 'packaging', 'github', '.git', '.github', '.venv')]
+    if any(target == folder or folder in target.parents for folder in protected_roots):
+        raise ProtectedExportTarget('Protected application data or resource')
+    if ROOT.resolve() in target.parents and (target.suffix.lower() in ('.py', '.sh') or
+            target.name in ('VERSION', 'projekt.json', 'LICENSE')):
+        raise ProtectedExportTarget('Protected application source')
+    return target
+
+
 def save_report(report,path,language='de'):
-    path=Path(path)
+    path=check_export_target(path)
     if path.suffix.lower()=='.json':text=json.dumps(report.data(),ensure_ascii=False,indent=2)
     elif path.suffix.lower() in ('.html','.htm'):text=html_report(report,language)
     else:raise ValueError('Use .html or .json')

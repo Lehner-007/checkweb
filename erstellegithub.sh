@@ -28,7 +28,7 @@ SECRET_NAMES={'.env','credentials','credentials.json','credentials.yaml',
               'id_rsa','id_ed25519','id_ecdsa','id_dsa','.netrc','.pypirc',
               '.npmrc','token.txt','tokens.json','passwords.txt'}
 SECRET_SUFFIXES={'.pem','.key','.p12','.pfx','.keystore'}
-LOCAL_REPORTS={'dogtruck-http-nachpruefung.html','dogtruck-local-nachpruefung.html'}
+LOCAL_REPORTS={'TESTBERICHT.md','dogtruck-http-nachpruefung.html','dogtruck-local-nachpruefung.html'}
 PATTERNS=[
  re.compile(rb'-----BEGIN (?:RSA |EC |DSA |OPENSSH |ENCRYPTED )?PRIVATE KEY-----'),
  re.compile(rb'\bgh[pousr]_[A-Za-z0-9]{20,}\b'),

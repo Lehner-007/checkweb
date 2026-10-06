@@ -17,6 +17,11 @@ import tempfile
 import threading
 import time
 import requests
+import uuid
+import socket
+import ssl
+import ipaddress
+import xml.etree.ElementTree as ET
 from urllib3.exceptions import ReadTimeoutError
 from bs4 import BeautifulSoup, UnicodeDammit
 from .model import VERSION,Report, Finding, CATEGORIES, tools_available, now
@@ -92,6 +97,8 @@ class Scanner:
         self.inventory = {}
         self.terminal_resources = set()
         self.redirect_aliases = {}
+        self.canonical_targets = {}
+        self.redirect_chains = {}
 
     def resource_key(self,target):
         target=str(target)
@@ -189,7 +196,9 @@ class Scanner:
         started=time.monotonic()
         try:
             if not self.selected: raise ValueError('No checks selected')
-            if self.mode=='local': self.local()
+            if self.mode=='local':
+                self.local()
+                if 'website' in self.selected:self.record(self.target,'website','not_applicable')
             elif self.mode=='online': self.online()
             else: raise ValueError('Invalid mode')
             self.stopcheck()
@@ -201,7 +210,7 @@ class Scanner:
             self.add('error','system',self.target,'scan_failed',type(exc).__name__+': '+str(exc))
         finally:
             for category in sorted(self.selected):
-                if not any(x['category']==category for x in self.report.checks): self.record(self.target,category,'not_applicable')
+                if not any(x['category']==category for x in self.report.checks): self.record(self.target,category,'not_checked' if self.report.status in ('failed','cancelled') else 'not_applicable')
             self.report.finished=now()
             self.report.duration_seconds=max(0,time.monotonic()-started)
             checked=sum(item['required']<=item['done'] for item in self.inventory.values())
@@ -213,7 +222,7 @@ class Scanner:
                 type=item['type'],http_status=item['http_status'],references=item['references'])
                 for key,item in self.inventory.items()]
             if self.report.resource_counts['unchecked']:self.report.incomplete_reasons.append('pending_resources')
-            if any(c['status'] in ('unavailable','tool_failed') for c in self.report.checks):self.report.incomplete_reasons.append('missing_checks')
+            if any(c['status'] in ('unavailable','tool_failed','not_checked') for c in self.report.checks):self.report.incomplete_reasons.append('missing_checks')
             if self.report.status=='complete' and self.report.incomplete_reasons:self.report.status='incomplete'
 
             self.session.close()
@@ -367,6 +376,12 @@ class Scanner:
             counts=Counter(x.get('id') for x in soup.find_all(id=True))
             for id_,n in counts.items():
                 if n>1: self.add('error','html',target,'duplicate_id',id_)
+        if 'website' in self.selected and self.mode=='online':
+            if soup.find('input',attrs={'type':'password'}):self.add('info','website',target,'login_page')
+            node=soup.find('link',rel=lambda value: value and 'canonical' in value)
+            if node and node.get('href'):
+                try:self.canonical_targets[canonical(target)]=canonical(urljoin(target,node['href']))
+                except ValueError:self.add('info','website',target,'canonical_invalid')
         if 'metadata' in self.selected:
             self.record(target,'metadata')
             if not soup.title or not soup.title.get_text(strip=True): self.add('warning','metadata',target,'title_missing')
@@ -568,7 +583,9 @@ class Scanner:
                             self.inventory[self.discover(alias)]['http_status']=code
                     if code in (301,302,303,307,308) and response.headers.get('Location'):
                         nxt=canonical(urljoin(current,response.headers['Location']))
+                        if urlsplit(current).scheme=='https' and urlsplit(nxt).scheme=='http':self.add('warning','security',current,'https_downgrade',destination=nxt)
                         if not robot:self.discover(nxt,'content' if body else 'link')
+                        self.redirect_chains.setdefault(url,[]).append(dict(target=display_url(current),destination=display_url(nxt),http_status=code))
                         self.add('info','links',source or url,'redirect',display_url(nxt),line,destination=nxt,http_status=code)
                         if step==5:raise ValueError('redirect limit')
                         if origin(nxt)!=origin(current):
@@ -601,7 +618,27 @@ class Scanner:
         except (requests.RequestException,TimeoutError,ValueError) as exc:
             self.record(url,'links','not_checked','requests')
             code='http_timeout' if any(isinstance(item,(requests.Timeout,TimeoutError,ReadTimeoutError)) for item in (exc,exc.__context__,exc.__cause__,*exc.args)) else 'network_error'
-            self.add('warning','links',source or url,code,type(exc).__name__,line,destination=url)
+            if isinstance(exc,requests.exceptions.SSLError):code='tls_error'
+            elif 'redirect loop' in str(exc):code='redirect_loop'
+            elif 'redirect limit' in str(exc):code='redirect_limit'
+            elif code!='http_timeout':
+                pending=[exc];seen=set();dns=False
+                while pending:
+                    item=pending.pop()
+                    if id(item) in seen:continue
+                    seen.add(id(item))
+                    if isinstance(item,socket.gaierror) or type(item).__name__=='NameResolutionError':dns=True
+                    pending.extend(x for x in (getattr(item,'__cause__',None),getattr(item,'__context__',None),getattr(item,'reason',None),*getattr(item,'args',())) if isinstance(x,BaseException))
+                code='dns_error' if dns else 'connection_error' if isinstance(exc,requests.ConnectionError) else 'network_error'
+            pending=[exc];seen=set();diagnostic=[type(exc).__name__]
+            while pending:
+                item=pending.pop()
+                if id(item) in seen:continue
+                seen.add(id(item))
+                if isinstance(item,ssl.SSLCertVerificationError):diagnostic.append(str(item.verify_message))
+                elif isinstance(item,OSError) and item.errno is not None:diagnostic.append(type(item).__name__+' errno='+str(item.errno))
+                pending.extend(x for x in (getattr(item,'__cause__',None),getattr(item,'__context__',None),getattr(item,'reason',None),*getattr(item,'args',())) if isinstance(x,BaseException))
+            self.add('warning','links',source or url,code,'; '.join(dict.fromkeys(diagnostic)),line,destination=url)
             self.cache[key]=None
         return None
 
@@ -672,6 +709,7 @@ class Scanner:
                         self.javascript_refs(self.decode(res[0],res[3],res[1]),res[3],urljoin(source,base))
         if depth_skipped-visited-self.terminal_resources:
             self.add('info','system',start,'limit','max_depth')
+        if 'website' in self.selected:self.website_diagnostics(start)
         # Anchors only when target HTML was fetched; no fabricated failure for unvisited pages.
         if 'links' in self.selected:
             for source,value,kind,line,base in self.refs:
@@ -681,6 +719,85 @@ class Scanner:
                 try:dest=canonical(dest)
                 except ValueError:continue
                 if frag and dest in self.ids and unquote(frag) not in self.ids[dest]:self.add('warning','links',source,'fragment_missing',value,line)
+
+    def diagnostic_fetch(self, url, purpose):
+        """Extra requests share robots, timeout, byte, rate and resource budgets."""
+        try:result=self.fetch(url)
+        except Skipped:result=None
+        status='done' if result else 'not_checked'
+        if result and not (200<=result[2]<300 or result[2] in (404,410)):status='not_checked'
+        if result and result[2]>=300 and purpose!='error_page':self.http_result(result[2],url)
+        self.record(url,'website',status,'requests')
+        self.report.network_tests.append(dict(purpose=purpose,target=display_url(url),status=status,
+            http_status=result[2] if result else 0,final=display_url(result[3]) if result else '',
+            chain=list(self.redirect_chains.get(canonical(url),[])),
+            reasons=list(dict.fromkeys(f.code for f in self.report.findings if f.code not in ('redirect',) and
+                (f.target==display_url(url) or f.destination==display_url(url) or (f.code=='limit' and status=='not_checked'))))))
+        if result and 200<=result[2]<300:self.content_assessed(url,result[3])
+        return result
+
+    def website_diagnostics(self,start):
+        self.stopcheck()
+        parts=urlsplit(start)
+        # DNS host variants only, no invented www hosts for IP literals or local names.
+        try:ipaddress.ip_address(parts.hostname);hosts=[parts.hostname]
+        except ValueError:
+            hosts=[parts.hostname]
+            if '.' in parts.hostname:
+                hosts.append(parts.hostname[4:] if parts.hostname.startswith('www.') else 'www.'+parts.hostname)
+        finals=set()
+        for host in hosts:
+            for scheme in ('http','https'):
+                self.stopcheck()
+                netloc=('['+host+']') if ':' in host else host
+                if parts.port:netloc+=':'+str(parts.port)
+                variant=urlunsplit((scheme,netloc,parts.path or '/',parts.query,''))
+                result=self.diagnostic_fetch(variant,'address_variant')
+                if result and 200<=result[2]<300:finals.add(result[3])
+        if len(finals)>1:self.add('info','website',start,'variant_targets','; '.join(display_url(u) for u in sorted(finals)))
+        missing=urljoin(start,'/checkweb-not-found-'+uuid.uuid4().hex)
+        result=self.diagnostic_fetch(missing,'error_page')
+        if result:
+            code=result[2]
+            self.add('info','website',missing,'error_page_status','HTTP '+str(code),http_status=code)
+            if 200<=code<300:
+                text=BeautifulSoup(result[0],'html.parser').get_text(' ',strip=True)
+                self.add('info','website',missing,'soft_404' if re.search(r'\b404\b|not found|nicht gefunden|page missing',text,re.I) else 'missing_path_success',http_status=code)
+        sitemap=urljoin(start,'/sitemap.xml')
+        result=self.diagnostic_fetch(sitemap,'sitemap')
+        listed=set()
+        if result and 200<=result[2]<300:
+            try:
+                root=ET.fromstring(result[0])
+                # Sitemap indexes cannot be treated as page inventories.
+                if root.tag.rsplit('}',1)[-1]=='sitemapindex':self.add('info','website',sitemap,'sitemap_index')
+                else:
+                    for node in root.iter():
+                        if node.tag.rsplit('}',1)[-1]=='loc' and node.text:
+                            try:listed.add(canonical(node.text.strip()))
+                            except ValueError:continue
+            except ET.ParseError:self.add('info','website',sitemap,'sitemap_invalid')
+        self.record(sitemap,'website','done' if listed else 'not_checked')
+        self.report.network_tests.append(dict(purpose='sitemap_inventory',target=sitemap,status='done' if listed else 'not_checked',http_status=0,final='',chain=[],reasons=[]))
+        # Compare crawled HTML only; sitemap exclusions and canonicals are hints.
+        for page in self.ids:
+            if listed and origin(page)==origin(start) and page not in listed:self.add('info','website',page,'sitemap_missing')
+        for page,target in self.canonical_targets.items():
+            self.stopcheck()
+            if target!=page:self.add('info','website',page,'canonical_other',display_url(target),destination=target)
+            if origin(target)!=origin(start):
+                self.record(target,'website','not_checked')
+                self.add('info','website',page,'canonical_external',destination=target)
+                continue
+            probe=self.diagnostic_fetch(target,'canonical')
+            if probe and probe[2]>=400:self.add('info','website',page,'canonical_unreachable','HTTP '+str(probe[2]),destination=target,http_status=probe[2])
+        # Bounded comparison; no sitemap URL expansion beyond the selected origin.
+        for page in sorted(listed)[:20]:
+            self.stopcheck()
+            if origin(page)==origin(start) and self.options.get('robots',True) and not self.allowed(page):self.add('info','website',page,'sitemap_robots')
+        if len(listed)>20:
+            self.record(sitemap,'website','not_checked')
+            self.add('info','website',sitemap,'sitemap_sample',str(len(listed)))
 
     @staticmethod
     def extension(url,headers):

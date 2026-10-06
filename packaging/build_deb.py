@@ -42,6 +42,9 @@ with Image.open(root/'assets/checkweb.png') as im:
  im.resize((256,256),Image.Resampling.LANCZOS).save(icon)
 for p in stage.rglob('*'):p.chmod(0o755 if p.is_dir() else 0o644)
 binpath.chmod(0o755)
+cleanup=stage/'usr/bin/checkweb-cleanup'
+shutil.copyfile(root/'packaging/desktop_lifecycle.py',cleanup)
+cleanup.chmod(0o755)
 control=stage/'DEBIAN';control.mkdir()
 size=sum(p.stat().st_size for p in stage.rglob('*') if p.is_file())
 (control/'control').write_text(f'''Package: checkweb
@@ -51,7 +54,7 @@ Priority: optional
 Architecture: all
 Maintainer: Josef
 Installed-Size: {(size+1023)//1024}
-Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-4.0, python3-bs4, python3-requests, python3-html5lib, util-linux
+Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-4.0 (>= 4.8), python3-bs4, python3-requests, python3-html5lib, util-linux
 Recommends: python3-tinycss2, python3-lxml, python3-pil, php-cli, nodejs
 Description: Local and online website diagnostics with GTK 4
  Checks websites and creates HTML or JSON reports.
@@ -59,11 +62,12 @@ Description: Local and online website diagnostics with GTK 4
 ''')
 (control/'md5sums').write_text(''.join(f'{hashlib.md5(p.read_bytes()).hexdigest()}  {p.relative_to(stage)}\n' for p in sorted(stage.rglob('*')) if p.is_file() and control not in p.parents))
 for p in control.iterdir():p.chmod(0o644)
-for hook in ('postinst','prerm'):
+for hook in ('postinst','prerm','postrm'):
  dst=control/hook
  source=(root/'packaging/desktop_lifecycle.py').read_text()
  if hook=='postinst': source=source.replace("action not in ('configure', 'remove', 'purge')", "action != 'configure'")
- else: source=source.replace("action not in ('configure', 'remove', 'purge')", "action not in ('remove', 'purge')")
+ elif hook=='prerm': source=source.replace("action not in ('configure', 'remove', 'purge')", "action not in ('remove', 'purge')")
+ else: source=source.replace("action not in ('configure', 'remove', 'purge')", "action != 'purge'")
  dst.write_text(source);dst.chmod(0o755)
 (work/'manifest.json').write_text(json.dumps(manifest,indent=2))
 output=root/'dist'/f'checkweb_{version}_all.deb'

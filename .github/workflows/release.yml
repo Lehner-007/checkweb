@@ -3,9 +3,8 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag (for example v1.2.0)
+        description: Existing release tag (v followed by the desired version)
         required: true
-        default: v1.2.0
   push:
     tags: ['v*']
 permissions:

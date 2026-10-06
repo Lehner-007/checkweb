@@ -12,7 +12,7 @@ from gi.repository import Gtk,Gio,GLib,Pango,Gdk
 from .model import CATEGORIES,VERSION,PROJECT,settings,config_dir,atomic_json,tools_available
 from .i18n import Strings
 from .engine import Scanner, normalize_url_input, canonical
-from .reports import SECTIONS, save_report, group_findings, finding_section, limit_messages, incomplete_messages, format_duration
+from .reports import ProtectedExportTarget, check_export_target, SECTIONS, save_report, group_findings, finding_section, limit_messages, incomplete_messages, format_duration
 from .languages import import_pack,download_pack,download_version,download_catalog,ProgramIdentityError
 from .windows import center_after_map
 from .updates import release_info,download_update
@@ -458,6 +458,7 @@ class Window(Gtk.ApplicationWindow):
                 path=path.with_suffix('.json' if chosen and chosen.get_name()=='JSON' else '.html')
             if path.suffix.lower() not in ('.html','.htm','.json'):
                 raise ValueError(self.tr('report_extension'))
+            check_export_target(path)
             def save():
                 try:
                     save_report(report,path,self.tr.code)
@@ -621,6 +622,7 @@ class Window(Gtk.ApplicationWindow):
         return dialog
 
     def background_error(self,exc):
+        if isinstance(exc,ProtectedExportTarget):return self.tr('protected_target')
         return self.tr('wrong_program') if isinstance(exc,ProgramIdentityError) else str(exc)
 
     def background(self,fn,done,quiet=False,on_error=None):
@@ -768,7 +770,9 @@ class Window(Gtk.ApplicationWindow):
         return False
 
 class App(Gtk.Application):
-    def __init__(self):super().__init__(application_id='eu.josef.checkweb',flags=Gio.ApplicationFlags.NON_UNIQUE)
+    def __init__(self):
+        super().__init__(application_id='eu.josef.checkweb',flags=Gio.ApplicationFlags.NON_UNIQUE)
+        self.set_accels_for_action('win.start',['F5'])
     def do_activate(self):
         window=self.get_active_window()
         if window is None:window=Window(self)

@@ -24,6 +24,8 @@ def main():
     args=parser.parse_args()
     if args.author:print('Josef');return 0
     if args.tools:print(json.dumps(tools_available(),ensure_ascii=False,indent=2));return 0
+    from modules.runtime_paths import remember_installed_locations
+    remember_installed_locations()
     from modules.lifecycle import execute_logged
     mode = 'CLI lokal' if args.local else 'CLI online' if args.url else 'GUI'
     return execute_logged(lambda: run_application(args, parser), mode, args.language)
@@ -37,7 +39,7 @@ def run_application(args, parser):
                 note=log_text('log_tidy_optional') if tool['name']=='tidy' else ''))
     if args.local or args.url:
         from modules.engine import Scanner
-        from modules.reports import save_report
+        from modules.reports import ProtectedExportTarget, save_report
         opts=settings()
         if args.checks:
             selected=args.checks.split(',')
@@ -52,7 +54,13 @@ def run_application(args, parser):
         scanner=Scanner('local' if args.local else 'online',args.local or args.url,opts)
         try:report=scanner.run()
         except KeyboardInterrupt:scanner.cancel.set();return 130
-        if args.output:save_report(report,args.output,args.language or opts['language'])
+        if args.output:
+            try:save_report(report,args.output,args.language or opts['language'])
+            except (OSError,ValueError) as exc:
+                from modules.i18n import Strings
+                message=Strings(args.language or opts['language'])('protected_target') if isinstance(exc,ProtectedExportTarget) else str(exc)
+                print(message,file=sys.stderr)
+                return 2
         else:print(json.dumps(report.data(),ensure_ascii=False,indent=2))
         return 2 if report.status in ('failed','incomplete') else 1 if any(f.severity=='error' for f in report.findings) else 0
     try:
