@@ -3,35 +3,35 @@
   "languages": [
     {
       "code": "ar",
-      "name": "Arabic"
+      "name": "العربية"
     },
     {
       "code": "es",
-      "name": "Spanish"
+      "name": "Español"
     },
     {
       "code": "fr",
-      "name": "French"
+      "name": "Français"
     },
     {
       "code": "hi",
-      "name": "Hindi"
+      "name": "हिन्दी"
     },
     {
       "code": "pt",
-      "name": "Portuguese"
+      "name": "Português"
     },
     {
       "code": "ru",
-      "name": "Russian"
+      "name": "Русский"
     },
     {
       "code": "tr",
-      "name": "Turkish"
+      "name": "Türkçe"
     },
     {
       "code": "zh",
-      "name": "Chinese"
+      "name": "中文"
     }
   ]
 }

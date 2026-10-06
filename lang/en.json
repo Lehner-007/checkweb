@@ -206,7 +206,7 @@
   "fix_robots_unavailable": "Retry later or check manually; this proves neither an access prohibition nor a broken link.",
   "select_all_checks": "Select all checks",
   "clear_checks": "Clear check selection",
-  "open_help": "Open user guide",
+  "open_help": "Help",
   "about": "About checkweb",
   "scan_settings": "Website scan settings",
   "update_settings": "Check for new application versions",

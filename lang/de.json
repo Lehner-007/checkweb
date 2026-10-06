@@ -206,7 +206,7 @@
   "fix_robots_unavailable": "Später erneut oder manuell prüfen; dies beweist weder ein Abrufverbot noch einen defekten Link.",
   "select_all_checks": "Alle Prüfungen auswählen",
   "clear_checks": "Prüfauswahl aufheben",
-  "open_help": "Bedienungsanleitung öffnen",
+  "open_help": "Hilfe",
   "about": "Über checkweb",
   "scan_settings": "Einstellungen für Webseitenprüfungen",
   "update_settings": "Prüfung auf neue Programmversionen",

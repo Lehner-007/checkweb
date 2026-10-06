@@ -1,3 +1,11 @@
+# 1.4.2
+
+- Hilfe einheitlich über Hilfe → Hilfe und F1 erreichbar; Hinweis in DE/EN.
+
+# 1.4.1
+
+- Programmlogo in deutscher und englischer Hilfe eingebettet; Hilfeseiten bleiben eigenständig nutzbar.
+
 ## 1.4.0 – 06.10.2026
 
 - Zusätzliche Online-Abfragen für Adressvarianten, Fehlerseiten, Sitemap/robots.txt/Canonical.

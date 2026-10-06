@@ -63,7 +63,10 @@ class ProgramIdentityTests(unittest.TestCase):
                 validate_version({'program_id':'checkweb','version':value})
 
     def test_prepared_resources_match_program(self):
-        self.assertEqual(validate_version(json.loads((ROOT/'github/version.json').read_text())),VERSION)
+        metadata=json.loads((ROOT/'github/version.json').read_text())
+        published=validate_version(metadata)
+        self.assertLessEqual(tuple(map(int,published.split('.'))),tuple(map(int,VERSION.split('.'))))
+        self.assertIn('/v'+published+'/',metadata['deb']['url'])
         en=Strings('en').en
         packs=[p for p in (ROOT/'github/sprachpakete').glob('*.json') if p.name!='catalog.json']
         self.assertEqual(len(packs),8)

@@ -773,6 +773,7 @@ class App(Gtk.Application):
     def __init__(self):
         super().__init__(application_id='eu.josef.checkweb',flags=Gio.ApplicationFlags.NON_UNIQUE)
         self.set_accels_for_action('win.start',['F5'])
+        self.set_accels_for_action('win.help',['F1'])
     def do_activate(self):
         window=self.get_active_window()
         if window is None:window=Window(self)
