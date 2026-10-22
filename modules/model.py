@@ -72,17 +72,25 @@ def tools_available():
         ('html', 'html5lib', 'python3-html5lib', 'module'),
         ('css', 'tinycss2', 'python3-tinycss2', 'module'),
         ('javascript', 'node', 'nodejs', 'command'),
+        ('javascript_parser', 'node-acorn', 'node-acorn', 'node_module'),
         ('php', 'php', 'php-cli', 'command'),
         ('structured', 'lxml', 'python3-lxml', 'module'),
         ('images', 'PIL', 'python3-pil', 'module'),
     ]
     result=[]
     for c,n,p,kind in entries:
-        available=bool(importlib.util.find_spec(n)) if kind=='module' else bool(shutil.which(n))
+        env=os.environ.copy()
+        for key in ('NODE_OPTIONS','NODE_PATH'):env.pop(key,None)
+        available=(bool(importlib.util.find_spec(n)) if kind=='module' else
+                   bool(shutil.which('node')) and subprocess.run(['node','-e',"try{require('acorn');process.exit(0)}catch(e){process.exit(1)}"],capture_output=True,timeout=2,env=env).returncode==0
+                   if kind=='node_module' else bool(shutil.which(n)))
         version=''
         if available:
             try:
                 if kind=='module': version=importlib.metadata.version('Pillow' if n=='PIL' else n)
+                elif kind=='node_module':
+                    env=os.environ.copy();env.pop('NODE_OPTIONS',None);env.pop('NODE_PATH',None)
+                    version=subprocess.run(['node','-p',"require('acorn').version"],capture_output=True,text=True,timeout=2,env=env).stdout.strip()
                 else:
                     cmd=[n,'--version'] if n!='php' else ['php','-n','--version']
                     env=os.environ.copy()

@@ -17,6 +17,7 @@ import tempfile
 import threading
 import time
 import requests
+from requests.structures import CaseInsensitiveDict
 import uuid
 import socket
 import ssl
@@ -34,6 +35,12 @@ TOKEN = re.compile(r'(pass|secret|token|api.?key|authorization|cookie)',re.I)
 
 class Cancelled(Exception): pass
 class Skipped(Exception): pass
+
+BODY_CACHE_LIMIT = 50_000_000
+
+def http_headers(value=None):
+    """Keep HTTP field names case-insensitive, including in test adapters."""
+    return CaseInsensitiveDict(value or {})
 
 
 def display_url(url):
@@ -82,6 +89,8 @@ class Scanner:
         self.session.headers['User-Agent'] = f'checkweb/{VERSION} (+read-only website diagnostics)'
         self.session.trust_env = False
         self.cache = {}
+        self.cache_body_bytes = 0
+        self.cache_limit_reported = False
         self.robots = {}
         self.robots_unavailable = set()
         self.ids = {}
@@ -99,6 +108,7 @@ class Scanner:
         self.redirect_aliases = {}
         self.canonical_targets = {}
         self.redirect_chains = {}
+        self.script_modes = {}
 
     def resource_key(self,target):
         target=str(target)
@@ -222,7 +232,11 @@ class Scanner:
                 type=item['type'],http_status=item['http_status'],references=item['references'])
                 for key,item in self.inventory.items()]
             if self.report.resource_counts['unchecked']:self.report.incomplete_reasons.append('pending_resources')
-            if any(c['status'] in ('unavailable','tool_failed','not_checked') for c in self.report.checks):self.report.incomplete_reasons.append('missing_checks')
+            if any(c['status']=='not_checked' for c in self.report.checks):self.report.incomplete_reasons.append('inconclusive_checks')
+            # An inconclusive check is not evidence that a tool is missing or failed.
+            # Keep the report incomplete where appropriate, but reserve this reason
+            # for checks that explicitly could not run because of tool availability.
+            if any(c['status'] in ('unavailable','tool_failed') for c in self.report.checks):self.report.incomplete_reasons.append('missing_checks')
             if self.report.status=='complete' and self.report.incomplete_reasons:self.report.status='incomplete'
 
             self.session.close()
@@ -231,6 +245,24 @@ class Scanner:
     def local(self):
         self.root=Path(self.target).expanduser().resolve()
         if not self.root.is_dir(): raise ValueError('Not a directory')
+        # Collect explicit HTML module context before any JS files are analyzed;
+        # filesystem iteration order must not change the syntax-check mode.
+        for folder,dirs,files in os.walk(self.root,followlinks=False):
+            dirs[:]=sorted(d for d in dirs if d not in SKIP_DIRS and not (Path(folder)/d).is_symlink())
+            for name in files:
+                path=Path(folder)/name
+                if path.is_symlink() or path.suffix.lower() not in {'.html','.htm'}:continue
+                try:
+                    if path.stat().st_size>self.options['max_bytes']:continue
+                    soup=BeautifulSoup(path.read_bytes(),'html.parser')
+                    base_node=soup.find('base',href=True)
+                    base=base_node.get('href','') if base_node else ''
+                    for script in soup.find_all('script',src=True):
+                        script_type=script.get('type','').strip().lower()
+                        if script_type!='module':continue
+                        resolved=self.local_reference_path(path,base,script['src'])
+                        self.script_modes[str(resolved)]='module'
+                except (OSError,ValueError):continue
         count=0
         for folder, dirs, files in os.walk(self.root,followlinks=False):
             self.stopcheck()
@@ -280,9 +312,9 @@ class Scanner:
                     os.killpg(process.pid,signal.SIGKILL)
                     process.wait()
 
-    def analyze(self,data,target,ext,headers=None,elapsed=0):
+    def analyze(self,data,target,ext,headers=None,elapsed=0,js_context=''):
         self.stopcheck()
-        headers=headers or {}
+        headers=http_headers(headers)
         if target in self.analyzed_resources: return
         self.analyzed_resources.add(target)
         key=self.discover(target,'content')
@@ -311,9 +343,10 @@ class Scanner:
             self.html(text,target,headers)
         if ext=='.php' and 'php' in self.selected:
             self.syntax(target,'php',['php','-n','-l'],data)
-        if ext in {'.js','.mjs','.cjs'} and 'javascript' in self.selected:
-            module=ext=='.mjs' or (ext!='.cjs' and bool(re.search(r'^\s*(import\s|export\s)',text,re.M)))
-            self.syntax(target,'javascript',['node','--input-type='+('module' if module else 'commonjs'),'--check'],data)
+        if ext in {'.js','.mjs','.cjs'} and ({'javascript','links'} & self.selected):
+            mode=js_context or self.script_modes.get(self.resource_key(target),'')
+            if not mode:mode='module' if ext=='.mjs' else 'script' if ext=='.cjs' else 'auto'
+            self.parse_javascript(text,target,mode,collect_links=False)
         if ext=='.css' and {'css','links','images'} & self.selected: self.css(text,target)
         if ext in {'.json','.xml','.svg'} and 'structured' in self.selected:
             try:
@@ -350,8 +383,67 @@ class Scanner:
         except (OSError,TimeoutError,ValueError) as exc:
             self.record(target,category,'tool_failed',args[0]);self.add('warning',category,target,'tool_failed',type(exc).__name__)
 
+    def parse_javascript(self,text,target,mode='auto',line_offset=0,base='',collect_links=True):
+        from .jsrefs import parse,ParserUnavailable,ParserLimit
+        self.stopcheck()
+        try:
+            result=parse(text,mode,self.cancel)
+        except InterruptedError:
+            raise Cancelled()
+        except ParserUnavailable:
+            if 'javascript' in self.selected:self.unavailable(target,'javascript','nodejs + node-acorn')
+            if 'links' in self.selected:self.record(target,'links','unavailable','node-acorn')
+            return
+        except ParserLimit as exc:
+            if 'javascript' in self.selected:self.record(target,'javascript','not_checked','node-acorn')
+            if 'links' in self.selected:self.record(target,'links','not_checked','node-acorn')
+            self.report.limits['javascript_parser_'+str(exc)]=1
+            self.add('info','javascript',target,'javascript_parser_limit',str(exc))
+            return
+        except (OSError,ValueError,RuntimeError):
+            if 'javascript' in self.selected:self.record(target,'javascript','tool_failed','node-acorn')
+            if 'links' in self.selected:self.record(target,'links','tool_failed','node-acorn')
+            self.add('warning','javascript',target,'javascript_parser_failed','node-acorn')
+            return
+        if result.get('unavailable'):
+            if 'javascript' in self.selected:self.unavailable(target,'javascript','node-acorn')
+            if 'links' in self.selected:self.record(target,'links','unavailable','node-acorn')
+            return
+        if result.get('limit'):
+            self.report.limits['javascript_parser_'+str(result['limit'])]=1
+            self.report.incomplete_reasons.append('javascript_parser_limit')
+            if 'javascript' in self.selected:self.record(target,'javascript','not_checked','Acorn')
+            if 'links' in self.selected:self.record(target,'links','not_checked','Acorn')
+            self.add('info','javascript',target,'javascript_parser_limit',str(result['limit']),tool='Acorn')
+            return
+        if not result.get('ok'):
+            if 'javascript' in self.selected:
+                error=result.get('error',{})
+                self.add('error','javascript',target,'syntax',error.get('message','Parsefehler'),
+                         int(error.get('line',0))+line_offset,int(error.get('column',0)),tool='Acorn')
+                self.record(target,'javascript','done','Acorn')
+            if 'links' in self.selected:self.record(target,'links','not_checked','Acorn')
+            return
+        if result.get('ambiguous') and ({'javascript','links'} & self.selected):
+            self.add('info','javascript',target,'javascript_context_unclear',tool='Acorn')
+            if 'javascript' in self.selected:self.record(target,'javascript','not_checked','Acorn')
+            if 'links' in self.selected:self.record(target,'links','not_checked','Acorn')
+        elif 'javascript' in self.selected:
+            self.record(target,'javascript','done','Acorn')
+        for item in result.get('unverified',()):
+            self.add('info','javascript',target,'javascript_dynamic_reference',item.get('kind','dynamic'),
+                     int(item.get('line',0))+line_offset,int(item.get('column',0)),tool='Acorn')
+            if 'javascript' in self.selected:self.record(target,'javascript','not_checked','Acorn')
+            if 'links' in self.selected:self.record(target,'links','not_checked','Acorn')
+        if 'links' in self.selected and collect_links:
+            for item in result.get('refs',()):
+                self.refs.append((target,item['url'],'fetch',item['line']+line_offset,base))
+
     def decode(self,data,target,headers):
-        declared=re.search(r'charset\s*=\s*["\']?([^;\s"\'>]+)',headers.get('Content-Type',''),re.I)
+        # HTTP header names are case-insensitive, including plain-dict test
+        # adapters and callers that do not pass Requests' header mapping.
+        content_type=http_headers(headers).get('Content-Type','')
+        declared=re.search(r'charset\s*=\s*["\']?([^;\s"\'>]+)',content_type,re.I)
         if not declared: declared=re.search(br'charset\s*=\s*["\']?([^;\s"\'>]+)',data[:4096],re.I)
         encoding=(declared[1].decode('ascii','replace') if isinstance(declared[1],bytes) else declared[1]) if declared else 'utf-8-sig'
         try: text=data.decode(encoding)
@@ -362,6 +454,7 @@ class Scanner:
         return text
 
     def html(self,text,target,headers):
+        headers=http_headers(headers)
         soup=BeautifulSoup(text,'html.parser')
         self.ids[target]={x.get('id') for x in soup.find_all(id=True)} | {x.get('name') for x in soup.find_all('a',attrs={'name':True})}
         if 'html' in self.selected:
@@ -426,6 +519,15 @@ class Scanner:
             value=node.get(attr)
             if value:
                 self.refs.append((target,value,node.name,node.sourceline or 0,base_href))
+                if node.name=='script':
+                    script_type=node.get('type','').strip().lower()
+                    mode='module' if script_type=='module' else 'script' if script_type in ('','text/javascript','application/javascript') else ''
+                    if mode:
+                        base=self.document_base(target,base_href)
+                        resolved=urljoin(base,value) if self.mode=='online' else self.local_reference_path(target,base_href,value)
+                        try:key=canonical(resolved) if isinstance(resolved,str) and resolved.startswith(('http:','https:')) else str(Path(resolved).resolve())
+                        except (ValueError,OSError):key=''
+                        if key:self.script_modes[key]=mode
                 self.ref_texts[(target,value,node.sourceline or 0)]=node.get_text(' ',strip=True)[:500] if node.name=='a' else ''
                 if 'security' in self.selected and target.startswith('https:') and value.startswith('http:') and node.name!='a':
                     self.add('warning','security',target,'mixed_content',display_url(value),node.sourceline)
@@ -433,11 +535,8 @@ class Scanner:
             for style in soup.find_all('style'): self.css(style.get_text(),target,base_href)
         for script in soup.find_all('script',src=False):
             if script.get('type','').lower() in ('','text/javascript','application/javascript','module'):
-                self.javascript_refs(script.get_text(),target,self.document_base(target,base_href) ,max(0,(script.sourceline or 1)-1))
-        if 'javascript' in self.selected:
-            for script in soup.find_all('script',src=False):
-                if script.get('type','').lower() not in ('','text/javascript','application/javascript','module'):continue
-                self.syntax(target,'javascript',['node','--input-type='+('module' if script.get('type')=='module' else 'commonjs'),'--check'],script.get_text().encode('utf-8'))
+                script_mode='module' if script.get('type','').lower()=='module' else 'script'
+                self.parse_javascript(script.get_text(),target,script_mode,max(0,(script.sourceline or 1)-1),self.document_base(target,base_href))
 
     def document_base(self,target,base):
         if self.mode=='online' or base.startswith(('http:','https:')):return urljoin(target,base)
@@ -445,11 +544,31 @@ class Scanner:
         resolved=self.root/base.lstrip('/') if base.startswith('/') else Path(target).parent/base
         return str(resolved)+('/' if base.endswith('/') else '')
 
+    def local_reference_path(self,target,base,value):
+        """Resolve an HTML asset reference using browser-like local path rules."""
+        target_path=Path(target).resolve()
+        if base.startswith(('http:','https:')):
+            return urljoin(base,value)
+        if base.startswith('/'):
+            base_path=self.root/base.lstrip('/')
+        elif base:
+            base_path=target_path.parent/base
+        else:
+            base_path=target_path.parent
+        # A base URL without a trailing slash names a file; references resolve
+        # from its containing directory, just as they do for local HTML.
+        if base and not base.endswith('/'):
+            base_path=base_path.parent
+        if value.startswith('/'):
+            return (self.root/value.lstrip('/')).resolve()
+        return (base_path/value).resolve()
+
     def javascript_refs(self,text,source,document_base,line_offset=0):
-        if 'links' not in self.selected:return
-        from .jsrefs import requests_in
-        for value,line in requests_in(text):
-            self.refs.append((source,value,'fetch',line+line_offset,document_base))
+        if 'links' not in self.selected and 'javascript' not in self.selected:return
+        path=Path(source)
+        mode=self.script_modes.get(self.resource_key(source), '')
+        if not mode:mode='module' if path.suffix.lower()=='.mjs' else 'script' if path.suffix.lower()=='.cjs' else 'auto'
+        self.parse_javascript(text,source,mode,line_offset,document_base)
 
     def css(self,text,target,base=''):
         try: import tinycss2
@@ -570,6 +689,11 @@ class Scanner:
                 self.stopcheck()
                 if current in visited:raise ValueError('redirect loop')
                 visited.add(current)
+                if not robot and not self.allowed(current):
+                    self.record(url,'links','not_checked','requests')
+                    reason='robots_unavailable' if origin(current) in self.robots_unavailable else 'robots_denied'
+                    self.add('info','links',source or url,reason,line=line,destination=current)
+                    raise Skipped()
                 if self.options['max_resources'] and self.network_count>=self.options['max_resources']:
                     self.add('info','system',url,'limit','max_resources');raise Skipped()
                 self.network_count+=1
@@ -577,12 +701,13 @@ class Scanner:
                 started=time.monotonic()
                 # Stream GET, even for link probes; only bounded content is read when requested.
                 with self.session.get(current,timeout=(min(5,self.options['timeout']),self.options['timeout']) if self.options['timeout'] else None,stream=True,allow_redirects=False) as response:
+                    response_headers=http_headers(response.headers)
                     code=response.status_code
                     if not robot:
                         for alias in visited:
                             self.inventory[self.discover(alias)]['http_status']=code
-                    if code in (301,302,303,307,308) and response.headers.get('Location'):
-                        nxt=canonical(urljoin(current,response.headers['Location']))
+                    if code in (301,302,303,307,308) and response_headers.get('Location'):
+                        nxt=canonical(urljoin(current,response_headers['Location']))
                         if urlsplit(current).scheme=='https' and urlsplit(nxt).scheme=='http':self.add('warning','security',current,'https_downgrade',destination=nxt)
                         if not robot:self.discover(nxt,'content' if body else 'link')
                         self.redirect_chains.setdefault(url,[]).append(dict(target=display_url(current),destination=display_url(nxt),http_status=code))
@@ -595,7 +720,7 @@ class Scanner:
                     if code==429:
                         self.blocked_origins.add(origin(url))
                         self.record(url,'links','not_checked','requests')
-                        self.add('info','links',source or url,'rate_limit','HTTP 429; Retry-After: '+response.headers.get('Retry-After','—'),line,destination=url,http_status=429)
+                        self.add('info','links',source or url,'rate_limit','HTTP 429; Retry-After: '+response_headers.get('Retry-After','—'),line,destination=url,http_status=429)
                         raise Skipped()
                     if not robot:
                         self.record(url,'links','done' if 200<=code<300 or code in (404,410) else 'not_checked','requests')
@@ -612,8 +737,16 @@ class Scanner:
                                 self.record(url,'system','not_checked','requests')
                                 self.add('info','system',url,'too_large');raise Skipped()
                             content.extend(chunk)
-                    result=(bytes(content),dict(response.headers),code,current,time.monotonic()-started)
-                    self.cache[key]=result
+                    result=(bytes(content),response_headers,code,current,time.monotonic()-started)
+                    body_size=len(result[0])
+                    if self.cache_body_bytes+body_size<=BODY_CACHE_LIMIT:
+                        self.cache[key]=result
+                        self.cache_body_bytes+=body_size
+                    elif body_size and not self.cache_limit_reported:
+                        self.cache_limit_reported=True
+                        self.report.limits['body_cache_bytes']=BODY_CACHE_LIMIT
+                        self.report.incomplete_reasons.append('body_cache')
+                        self.add('info','system',url,'body_cache_limit',str(BODY_CACHE_LIMIT))
                     return result
         except (requests.RequestException,TimeoutError,ValueError) as exc:
             self.record(url,'links','not_checked','requests')
@@ -801,6 +934,6 @@ class Scanner:
 
     @staticmethod
     def extension(url,headers):
-        mime=headers.get('Content-Type','').split(';')[0].lower()
+        mime=http_headers(headers).get('Content-Type','').split(';')[0].lower()
         mapping={'text/html':'.html','application/xhtml+xml':'.html','text/css':'.css','application/javascript':'.js','text/javascript':'.js','application/json':'.json','image/svg+xml':'.svg','application/xml':'.xml','text/xml':'.xml','image/png':'.png','image/jpeg':'.jpg','image/webp':'.webp','image/gif':'.gif'}
         return mapping.get(mime,Path(urlsplit(url).path).suffix.lower())

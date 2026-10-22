@@ -14,8 +14,8 @@ import sys
 import tempfile
 
 ROOT=Path(sys.argv[1]).resolve()
-ROOT_FILES={'checkweb.py','VERSION','README.md','CHANGELOG.md','LICENSE',
-            'start.sh','erstellezip.sh','erstelledeb.sh','erstellegithub.sh','.gitignore',
+ROOT_FILES={'checkweb.py','VERSION','README.md','CHANGELOG.md','BIBLIOTHEK.md','LICENSE',
+            '.start.sh','start.sh','erstellezip.sh','erstelledeb.sh','erstellegithub.sh','.gitignore',
             '.gitattributes','pyproject.toml','setup.cfg','setup.py',
             'requirements.txt','requirements-dev.txt','MANIFEST.in'}
 SOURCE_DIRS={'modules','tests','assets','help','lang','docs','github','.github','packaging'}
@@ -28,7 +28,8 @@ SECRET_NAMES={'.env','credentials','credentials.json','credentials.yaml',
               'id_rsa','id_ed25519','id_ecdsa','id_dsa','.netrc','.pypirc',
               '.npmrc','token.txt','tokens.json','passwords.txt'}
 SECRET_SUFFIXES={'.pem','.key','.p12','.pfx','.keystore'}
-LOCAL_REPORTS={'TESTBERICHT.md','dogtruck-http-nachpruefung.html','dogtruck-local-nachpruefung.html'}
+LOCAL_REPORTS={'TESTBERICHT.md','dogtruck-http-nachpruefung.html','dogtruck-local-nachpruefung.html',
+               'local_checkweb-report.html','online_checkweb-report.html','checkweb.desktop'}
 PATTERNS=[
  re.compile(rb'-----BEGIN (?:RSA |EC |DSA |OPENSSH |ENCRYPTED )?PRIVATE KEY-----'),
  re.compile(rb'\bgh[pousr]_[A-Za-z0-9]{20,}\b'),
@@ -44,7 +45,10 @@ class Refused(Exception):pass
 def fail(message):raise Refused(message)
 
 def excluded(path):
- return str(path)=='fehler.txt' or str(path) in LOCAL_REPORTS or any(part in EXCLUDED_DIRS for part in path.parts) or path.suffix.lower() in EXCLUDED_SUFFIXES or path.name.endswith('~') or path.name.startswith('.#')
+ return (str(path)=='fehler.txt' or str(path) in LOCAL_REPORTS or
+         (path.parent==Path('.') and path.name.startswith('Pruefbericht_checkweb_') and path.suffix.lower()=='.md') or
+         any(part in EXCLUDED_DIRS for part in path.parts) or path.suffix.lower() in EXCLUDED_SUFFIXES or
+         path.name.endswith('~') or path.name.startswith('.#'))
 
 def secret_name(path):
  name=path.name.lower()

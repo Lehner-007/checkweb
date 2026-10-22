@@ -1,3 +1,32 @@
+## 1.4.8 – 22.10.2026
+
+- HTTP-Content-Type wird bei der Dekodierung ohne Beachtung der Groß-/Kleinschreibung gelesen; explizite Charset-Angaben haben Vorrang vor automatischer Erkennung.
+- Vollständiger Abnahmelauf prüft Voraussetzungen und schlägt bei fehlgeschlagenen oder übersprungenen Pflichtprüfungen fehl.
+
+## 1.4.7 – 22.10.2026
+
+- Nicht geprüfte Ziele werden als unbestimmte Prüfung statt als fehlendes Werkzeug ausgewiesen; tatsächliche Werkzeugausfälle bleiben separat markiert.
+
+## 1.4.6 – 22.10.2026
+
+- JavaScript-Parser begrenzt Eingabe, Ausgabe, Laufzeit und Abbruch durchgängig; Worker-Abbruch hinterlässt keinen Parserprozess.
+
+## 1.4.5 – 22.10.2026
+
+- robots.txt wird vor jedem Redirectziel erneut geprüft; Sperren zeigen Zieladresse und Fundstelle.
+- HTTP-Header werden unabhängig von Groß-/Kleinschreibung ausgewertet; HTML-MIME-Erkennung funktioniert auch ohne Dateiendung.
+- JavaScript-Prüfung und statische Abrufsuche nutzen Acorn statt Regex-Heuristiken. Parsermodus, dynamische Abrufe und Prüfgrenzen werden nachvollziehbar ausgewiesen.
+- Gesamter Body-Cache ist auf 50 MB begrenzt und führt bei Erreichen zu einem unvollständigen Prüfstatus.
+- Abbruch eskaliert zeitgesteuert von SIGINT über SIGTERM zu SIGKILL und liefert auch nach erzwungenem Ende einen Abbruchbericht.
+
+## 1.4.4 – 22.10.2026
+
+Gemeinsame Bibliothek josef_basis 0.1.0 lokal eingebunden; vorhandene Schnittstellen beibehalten.
+
+## 1.4.3 — 11.10.2026
+
+- Projektstart über .start.sh und ausführbare Icon-Verknüpfung; interne Verweise angepasst.
+
 # 1.4.2
 
 - Hilfe einheitlich über Hilfe → Hilfe und F1 erreichbar; Hinweis in DE/EN.

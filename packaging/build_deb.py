@@ -10,7 +10,7 @@ version=(root/'VERSION').read_text().strip()
 import re
 if not re.fullmatch(r'\d+\.\d+\.\d+', version): raise SystemExit('Ungültige VERSION')
 app=stage/'usr/share/checkweb';app.mkdir(parents=True)
-files=[root/'checkweb.py',root/'VERSION',*sorted((root/'modules').glob('*.py')),*[root/'assets'/n for n in ['checkweb.png','report_watermark.png']],*[root/'lang'/f'{c}.json' for c in ['de','en']],*[root/'help'/c/'index.html' for c in ['de','en']]]
+files=[root/'checkweb.py',root/'VERSION',*[p for p in sorted((root/'modules').rglob('*')) if p.is_file() and '__pycache__' not in p.parts and p.suffix != '.pyc'],*[root/'assets'/n for n in ['checkweb.png','report_watermark.png']],*[root/'lang'/f'{c}.json' for c in ['de','en']],*[root/'help'/c/'index.html' for c in ['de','en']]]
 manifest={}
 for src in files:
  assert src.is_file() and not src.is_symlink()
@@ -55,7 +55,7 @@ Architecture: all
 Maintainer: Josef
 Installed-Size: {(size+1023)//1024}
 Depends: python3 (>= 3.10), python3-gi, gir1.2-gtk-4.0 (>= 4.8), python3-bs4, python3-requests, python3-html5lib, util-linux
-Recommends: python3-tinycss2, python3-lxml, python3-pil, php-cli, nodejs
+Recommends: python3-tinycss2, python3-lxml, python3-pil, php-cli, nodejs, node-acorn
 Description: Local and online website diagnostics with GTK 4
  Checks websites and creates HTML or JSON reports.
  Includes German and English user interfaces and offline help.

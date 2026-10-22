@@ -15,7 +15,7 @@ from .model import ROOT, config_dir
 SECTIONS=('errors','external_errors','manual','indeterminate','warnings','hints','unchecked','redirects')
 MANUAL_CODES={'http_auth','http_forbidden'}
 INDETERMINATE_CODES={'http_server','http_timeout','http_status','network_error','rate_limit','robots_denied','robots_unavailable','route_unknown','tool_failed','dns_error','connection_error','tls_error','redirect_loop','redirect_limit'}
-UNCHECKED_CODES={'limit','too_large','tool_missing'}
+UNCHECKED_CODES={'limit','too_large','tool_missing','javascript_dynamic_reference','javascript_context_unclear'}
 REDIRECT_CODES={'redirect','redirect_boundary','redirect_pending'}
 
 

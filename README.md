@@ -1,22 +1,26 @@
-## Aktueller Stand 1.4.0 – 06.10.2026
+## 1.4.8 – 22.10.2026
 
-Manueller Release-Tag ohne veralteten Standardwert; getrennte PHP-/JavaScript-Tests mit Werkzeugvoraussetzungen; Exportzielschutz für Programmressourcen, aktive Konfiguration und verlinkte Ziele.
+Antwortdekodierung berücksichtigt `Content-Type`-Header unabhängig von der Schreibweise und verwendet einen expliziten Charset vor automatischer Erkennung. Die vollständige Abnahme bricht bei fehlenden Voraussetzungen oder übersprungenen Pflichtprüfungen ab. Paketmanager-Installation und visuelle Kontrolle auf dem Zielrechner sind gesonderte Prüfschritte.
 
-Die auswählbare Gruppe „Zusätzliche Online-Abfragen“ vergleicht HTTP/HTTPS und www/ohne www, testet eine zufällige nicht vorhandene Adresse und liest /sitemap.xml. Alle Anfragen beachten das gemeinsame Budget, robots.txt, Abbruch, Zeit- und Größenlimits. Weiterleitungen außerhalb des Ursprungs werden als Grenze gemeldet. Soft-404, abweichende Varianten und Canonical-/Sitemap-Widersprüche bleiben Hinweise. robots.txt wird mit höchstens 20 Sitemap-Adressen verglichen; Sitemap-Indizes werden nicht weiter verfolgt. DNS-, Verbindungs-, TLS- und HTTP-Fehler sind getrennt. Berichte zeigen ausgeführte und nicht geprüfte Tests mit Gründen sowie mögliche Loginseiten. Lokale Prüfungen führen diese zusätzlichen Online-Abfragen nicht aus.
+## 1.4.7 – 22.10.2026
 
-Noch nicht als DEB erstellt oder veröffentlicht. Der bisherige Release bleibt unverändert. Prüfdetails: `TESTBERICHT.md`.
+Online-Prüfberichte ordnen ungeprüfte Ziele (z. B. Weiterleitungen auf einen anderen Origin) als unbestimmte Prüfung statt als fehlendes oder fehlgeschlagenes Werkzeug ein. Solche Prüfläufe bleiben unvollständig; echte Werkzeugausfälle werden weiterhin ausdrücklich gemeldet. Für 1.4.7 wurde kein ZIP oder DEB gebaut. Details und Prüfnachweise: [Prüfbericht](Pruefbericht_checkweb_1.4.7.md).
+
+## 1.4.6 – 22.10.2026
+
+Zusätzliche Korrektur der JavaScript-Parsergrenzen: Laufzeit und Abbruch gelten auch während blockierter Pipe-Übertragung; ein hart beendeter Scan-Worker hinterlässt keinen Parser. Die vorhandenen 1.4.5-Pakete wurden nicht verändert. Für 1.4.6 wurde kein ZIP oder DEB gebaut.
 
 # checkweb
 
-Aktuelle Version: **1.4.0**. Die zentrale Versionsquelle ist `VERSION`.
+Aktuelle Version: **1.4.8**. Die zentrale Versionsquelle ist `VERSION`.
 
 GTK-4-Anwendung zur lokalen und Online-Prüfung von Webseiten. Entwicklung für Linux Mint/Cinnamon. GPL-3.0-only, Copyright 2026 Josef. Vollständiger Lizenztext: LICENSE.
 
 ## Start
 
-Im Entwicklungsordner `./start.sh` starten. Das Skript nutzt eine vorhandene projektinterne `.venv`, andernfalls `/usr/bin/python3`. Es installiert keine Pakete. Direkter Start: `python3 checkweb.py`.
+Im Entwicklungsordner `./.start.sh` starten. Das Skript nutzt eine vorhandene projektinterne `.venv`, andernfalls `/usr/bin/python3`. Es installiert keine Pakete. Direkter Start: `python3 checkweb.py`.
 
-Systemabhängigkeiten: `python3-gi`, `gir1.2-gtk-4.0`, `python3-bs4`, `python3-requests`. Für alle unterstützten Checks außerdem `python3-html5lib`, `python3-tinycss2`, `python3-lxml`, `python3-pil`, `php-cli`, `nodejs`. Die App erkennt fehlende optionale Werkzeuge. In der Entwicklungs-VM ist html5lib in `.venv` installiert; die übrigen Python-Bibliotheken werden aus den Systempaketen verwendet.
+Systemabhängigkeiten: `python3-gi`, `gir1.2-gtk-4.0`, `python3-bs4`, `python3-requests`. Für alle unterstützten Checks außerdem `python3-html5lib`, `python3-tinycss2`, `python3-lxml`, `python3-pil`, `php-cli`, `nodejs` und `node-acorn`. Acorn liest JavaScript als Syntaxbaum; untersuchter Seitencode wird nicht ausgeführt. Die App erkennt fehlende optionale Werkzeuge. In der Entwicklungs-VM ist html5lib in `.venv` installiert; die übrigen Python-Bibliotheken werden aus den Systempaketen verwendet.
 
 Nicht-grafische Prüfung: `python3 checkweb.py --local /pfad/zum/projekt --no-network --output bericht.html`. Online: `python3 checkweb.py --url https://example.org --output bericht.json`. `--checks html,links` begrenzt Kategorien; `--tools`, `--version`, `--help` sind verfügbar. Exit-Code 0: Prüflauf beendet ohne Fehlerbefund, 1: Fehlerbefunde, 2: Prüflauf fehlgeschlagen oder unvollständig. Warnungen, Grenzen und nicht ausgeführte Prüfungen trotzdem im Bericht beachten.
 
@@ -30,16 +34,17 @@ Standardgrenzen: 100 Seiten, Linktiefe 3, 300 Dateien/HTTP-Anfragen und 10 Sekun
 
 DE/EN und lokale HTML-Hilfe liegen unter lang/ und help/. Eigene JSON-Pakete importieren: `{"program_id":"checkweb","code":"fr","strings":{"start":"Démarrer"},"help_html":"<h1>Aide</h1><p>…</p>"}`. Fehlende Schlüssel fallen auf Englisch zurück; Platzhalter müssen übereinstimmen. Eigenes HTML wird auf passive Inhalte begrenzt. Vorhandene Sprachpakete werden nicht überschrieben.
 
-Interne Downloadquelle: direkte HTTPS-GitHub-Basisadresse, aus der `<code>.json` geladen wird. Voreingestellt ist `https://raw.githubusercontent.com/Lehner-007/checkweb/main/github/sprachpakete`. Die interne Versionsquelle liefert `{"program_id":"checkweb","version":"1.4.0"}`. Es werden keine Updates installiert. Monatsintervalle entsprechen 30 Tagen.
+Interne Downloadquelle: direkte HTTPS-GitHub-Basisadresse, aus der `<code>.json` geladen wird. Voreingestellt ist `https://raw.githubusercontent.com/Lehner-007/checkweb/main/github/sprachpakete`. Die Versionsquelle wird bei einer Veröffentlichung aus dem tatsächlich gebauten DEB erzeugt und enthält Programmversion sowie Paket-Prüfsumme. Es werden keine Updates installiert. Monatsintervalle entsprechen 30 Tagen.
 
 ## Prüfen
 
-`.venv/bin/python -m unittest discover -s tests -v` führt isolierte lokale Tests und Tests gegen einen lokalen HTTP-Testserver durch. GUI-Smoke-Test separat unter einer grafischen Sitzung ausführen.
+`python3 tests/run_complete_acceptance.py` führt die Unit-/Integrationstests und GTK-Abnahmeskripte aus und schlägt fehl, wenn Voraussetzungen fehlen oder Tests übersprungen werden. Paketmanager-Installation/Entfernung und visuelle Zielrechnerkontrolle sind separat zu dokumentieren.
 
 ## Werkzeuggrundlagen
 
 - [PHP – CLI-Optionen](https://www.php.net/features.commandline.options.php): Syntaxprüfung mit `-l`, ohne Ausführung; `-n` ignoriert php.ini.
-- [Node.js – Kommandozeile](https://nodejs.org/docs/latest-v18.x/api/cli.html): `--check` prüft Syntax, ohne das Skript auszuführen.
+- [Acorn – JavaScript-Parser](https://github.com/acornjs/acorn): AST-Parser; der Projektadapter extrahiert nur statisch sichere GET/HEAD-Abrufe.
+- [Node.js – Kommandozeile](https://nodejs.org/docs/latest-v18.x/api/cli.html): führt den lokalen Parseradapter mit Laufzeitbegrenzung aus.
 - [tinycss2 – API](https://doc.courtbouillon.org/tinycss2/stable/api_reference.html): CSS-Parser mit ParseError-Diagnosen.
 
 Externe Bibliotheken werden nicht mit dem Programm kopiert, sondern als getrennte Abhängigkeiten verwendet. PyGObject: LGPL; Beautiful Soup: MIT; requests: Apache-2.0; html5lib/tinycss2: MIT; lxml: BSD; Pillow: HPND. PHP/Node werden als separate installierte Programme aufgerufen. Bei Änderungen am Distributionsumfang die Lizenzen erneut prüfen.
@@ -132,7 +137,7 @@ Anforderungen: `docs/manuelle_kontrolle.dm`; Regressionen: `tests/test_manual_re
 
 ## Benutzerpaket
 
-Das Programm-ZIP enthält DE/EN samt lokaler HTML-Hilfe. Nach dem Entpacken mit `python3 checkweb.py` starten; die oben genannten Systemabhängigkeiten müssen verfügbar sein. `start.sh` ist nur für die Entwicklung und liegt nicht im ZIP. Private Einstellungen, Logs und Testdateien werden nicht ausgeliefert.
+Das Programm-ZIP enthält DE/EN samt lokaler HTML-Hilfe. Nach dem Entpacken mit `python3 checkweb.py` starten; die oben genannten Systemabhängigkeiten müssen verfügbar sein. `.start.sh` ist nur für die Entwicklung und liegt nicht im ZIP. Private Einstellungen, Logs und Testdateien werden nicht ausgeliefert.
 
 Arabisch, Spanisch, Französisch, Hindi, Portugiesisch, Russisch, Türkisch und vereinfachtes Chinesisch stehen als getrennte JSON-Sprachpakete mit vollständiger Hilfe bereit. Im Menü Datei → Einstellungen importieren, Sprache auswählen, speichern; die Oberfläche schaltet sofort um. Bestehende eigene Sprachpakete werden erhalten; ein erneuter Import desselben Sprachcodes wird abgelehnt. Die GitHub-Downloadquelle ist voreingestellt; die Quellen sind fest im Programm hinterlegt.
 
@@ -210,7 +215,7 @@ F5 startet eine Prüfung wie der Menüeintrag „Prüfung starten“. Während e
 
 Entwicklungs- und Prüfumgebung: Linux Mint 22.3/Cinnamon. Mindestanforderung GTK 4.8 (ContentFit); GTK 3 genügt nicht. Andere Mint-Versionen wurden nicht vollständig installiert getestet. Siehe https://docs.gtk.org/gtk4/enum.ContentFit.html.
 
-Build-Werkzeuge: Python 3, Pillow (python3-pil), dpkg-deb (Paket dpkg) und ein vorhandener, nicht verlinkter Ausgabeordner dist. Build-Skripte und Tests gehören zum GitHub-Entwicklerquellstand. Das schlanke Basispaket aus erstellezip.sh enthält bewusst nur Laufzeitdateien; Start dort mit `python3 checkweb.py`. Es enthält keine start.sh, Build-Umgebung oder Tests und ist kein Entwicklerarchiv. Für Veröffentlichungen werden kein privater Gesamtordner und keine Venv kopiert.
+Build-Werkzeuge: Python 3, Pillow (python3-pil), dpkg-deb (Paket dpkg) und ein vorhandener, nicht verlinkter Ausgabeordner dist. Build-Skripte und Tests gehören zum GitHub-Entwicklerquellstand. Das schlanke Basispaket aus erstellezip.sh enthält bewusst nur Laufzeitdateien; Start dort mit `python3 checkweb.py`. Es enthält keine .start.sh, Build-Umgebung oder Tests und ist kein Entwicklerarchiv. Für Veröffentlichungen werden kein privater Gesamtordner und keine Venv kopiert.
 
 Installations- und Metadatenbefehle nutzen die zentrale VERSION. SHA256SUMS und Versions-JSON erst aus dem tatsächlich gebauten Release-DEB erzeugen. Noch kein neuer Release veröffentlicht. Maintainer bleibt Josef; eine von Josef festgelegte E-Mail-Adresse fehlt noch und wird nicht erfunden.
 

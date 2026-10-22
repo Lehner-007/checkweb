@@ -70,6 +70,18 @@ sys.exit(subprocess.run([os.environ['CW_REAL_GIT'],*args]).returncode)
   self.assertTrue((stage/'erstelledeb.sh').is_file())
   self.assertTrue((stage/'packaging/build_deb.py').is_file())
   self.assertFalse((stage/'fehler.txt').exists())
+ def test_local_review_artifacts_are_excluded_and_public_library_doc_included(self):
+  (self.root/'Pruefbericht_checkweb_1.4.8.md').write_text('private review')
+  (self.root/'local_checkweb-report.html').write_text('private report')
+  (self.root/'online_checkweb-report.html').write_text('private report')
+  (self.root/'checkweb.desktop').write_text('Exec=/home/private/path')
+  (self.root/'BIBLIOTHEK.md').write_text('# Public library notes\n')
+  result=self.run_script()
+  self.assertEqual(result.returncode,0,result.stderr)
+  stage=next((self.root/'dist').glob('checkweb-github-4.5.6-*'))
+  self.assertTrue((stage/'BIBLIOTHEK.md').is_file())
+  for name in ('Pruefbericht_checkweb_1.4.8.md','local_checkweb-report.html','online_checkweb-report.html','checkweb.desktop'):
+   self.assertFalse((stage/name).exists())
  def test_missing_required_files_and_tests_fail(self):
   for name in ('VERSION','LICENSE','README.md','checkweb.py','.gitignore','tests/test_fixture.py'):
    with self.subTest(name=name):

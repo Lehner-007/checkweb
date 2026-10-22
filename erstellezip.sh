@@ -9,7 +9,7 @@ root=Path(sys.argv[1])
 version=(root/'VERSION').read_text(encoding='utf-8').strip()
 if not re.fullmatch(r'\d+\.\d+\.\d+',version):raise SystemExit('Ungültige VERSION')
 files=[root/name for name in ('checkweb.py','VERSION','README.md','CHANGELOG.md','LICENSE')]
-files+=sorted((root/'modules').glob('*.py'))
+files+=[p for p in sorted((root/'modules').rglob('*')) if p.is_file() and '__pycache__' not in p.parts and p.suffix != '.pyc']
 files+=[root/'assets'/name for name in ('checkweb.png','report_watermark.png')]
 for code in ('de','en'):
  files.append(root/'lang'/f'{code}.json')

@@ -120,7 +120,7 @@ class ManualReviewTests(unittest.TestCase):
         text='''// fetch('/comment')
         const s="fetch('/string')"; /*fetch('/block')*/
         fetch('/ok'); fetch('/post', {method:'POST'});
-        fetch(`/dynamic/${x}`); xhr.open('POST','/no'); xhr.open('GET','/yes');'''
+        fetch(`/dynamic/${x}`); const xhr=new XMLHttpRequest(); xhr.open('POST','/no'); xhr.open('GET','/yes');'''
         self.assertEqual([v for v,_ in requests_in(text)],['/ok','/yes'])
     def test_unlimited_network_cancel_returns_partial_report(self):
         from modules.scanprocess import run_interruptible
